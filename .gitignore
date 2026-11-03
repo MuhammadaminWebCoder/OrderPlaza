@@ -1,0 +1,10 @@
+node_modules/
+dist/
+# source drawings, renders and 3ds Max scenes (several GB, copied from the 42- folder) — never in the repository
+_manba/
+*.exe
+*.url
+.claude/settings.local.json
+.DS_Store
+Thumbs.db
+__pycache__/

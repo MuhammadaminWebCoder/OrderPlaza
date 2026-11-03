@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Order Plaza — biznes-markaz, Toshkent</title>
+<meta name="description" content="Order Plaza biznes-markazi: yerto‘la + 10 qavat (9-qavat terrasa, 10-qavat texnik), 1-qavatda savdo, 49,1 × 14,1 m. Interaktiv 3D maket: kadastr chizmasi bo‘yicha qavatlar, mebelli ofislar va ularda yurish, fasad va interyer vizualizatsiyalari.">
+<meta name="theme-color" content="#0A0F19">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Order Plaza — biznes-markaz">
+<meta property="og:description" content="Yerto‘la + 10 qavat · 3D maket · ofislar ichida yurish · vizualizatsiyalar">
+<meta property="og:image" content="assets/img/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230A0F19'/%3E%3Crect x='8' y='12' width='4' height='13' rx='1' fill='%23fff'/%3E%3Crect x='14' y='6' width='4' height='19' rx='1' fill='%23D2A954'/%3E%3Crect x='20' y='15' width='4' height='10' rx='1' fill='%2330D873'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="preload" as="image" type="image/webp" href="assets/img/hero-1400.webp"
+      imagesrcset="assets/img/hero-800.webp 800w, assets/img/hero-1400.webp 1400w, assets/img/hero-2200.webp 2200w, assets/img/hero-2800.webp 2800w" imagesizes="100vw" fetchpriority="high">
+<link rel="preload" as="image" type="image/webp" href="assets/img/order-plaza-mark.webp">
+<style>
+/* loading screen — like the 3D Kadastr site: two halves of night, the gold sign turns once and shrinks,
+   "Order Plaza" slides out from behind it, then the halves part */
+html.is-preloading,html.is-preloading body{overflow:hidden}
+.preloader{position:fixed;inset:0;z-index:300;display:grid;place-items:center;perspective:900px}
+html:not(.is-preloading) .preloader:not(.is-open){display:none}
+.pl-half{position:absolute;left:0;right:0;height:50.5%;background:#05080E;transition:transform 1s cubic-bezier(.7,0,.2,1)}
+.pl-top{top:0}.pl-bot{bottom:0}
+.pl-brand{position:relative;display:flex;align-items:center;transition:opacity .45s ease,transform .9s cubic-bezier(.7,0,.2,1),filter .6s ease}
+.pl-logo{display:block;width:clamp(150px,17vw,230px);height:clamp(150px,17vw,230px);flex:none;transform-style:preserve-3d;
+  animation:plFlip 1.05s cubic-bezier(.45,0,.2,1) .15s both,plShrink .75s cubic-bezier(.7,0,.2,1) 1.25s forwards}
+.pl-logo img{width:100%;height:100%;object-fit:contain;display:block}
+@keyframes plFlip{from{opacity:0;transform:rotateY(0) scale(.7)}25%{opacity:1}to{opacity:1;transform:rotateY(360deg) scale(1)}}
+@keyframes plShrink{to{width:clamp(90px,9vw,130px);height:clamp(90px,9vw,130px)}}
+.pl-name{display:block;max-width:0;overflow:hidden;white-space:nowrap;animation:plOpen .85s cubic-bezier(.7,0,.2,1) 1.3s forwards}
+.pl-name span{display:inline-block;padding-left:clamp(14px,2vw,28px);font:600 clamp(44px,7vw,104px)/1 "Space Grotesk","Manrope",system-ui,sans-serif;letter-spacing:-.035em;color:#fff;
+  transform:translateX(-100%);animation:plSlide .85s cubic-bezier(.2,.8,.2,1) 1.38s forwards}
+@keyframes plOpen{to{max-width:900px}}
+@keyframes plSlide{to{transform:none}}
+.pl-progress{position:absolute;left:50%;bottom:clamp(48px,12vh,110px);width:min(320px,60vw);height:2px;transform:translateX(-50%);border-radius:2px;background:rgba(236,239,243,.1);overflow:hidden;transition:opacity .4s ease}
+.pl-progress i{display:block;height:100%;background:#D2A954;transform:scaleX(0);transform-origin:0 50%;transition:transform .35s ease-out}
+.preloader.is-open{pointer-events:none}
+.preloader.is-open .pl-top{transform:translateY(-100%)}
+.preloader.is-open .pl-bot{transform:translateY(100%)}
+.preloader.is-open .pl-brand{opacity:0;transform:scale(1.18);filter:blur(6px)}
+.preloader.is-open .pl-progress{opacity:0}
+@media (max-width:560px){
+  .pl-logo{width:120px;height:120px}
+  @keyframes plShrink{to{width:58px;height:58px}}
+  .pl-name span{font-size:34px;padding-left:10px}
+}
+</style>
+<script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('is-preloading')</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Place","name":"Order Plaza","description":"Biznes-markaz: yerto‘la + 10 qavat, 1-qavatda savdo maydonlari",
+ "address":{"@type":"PostalAddress","streetAddress":"Sharof Rashidov shoh koʻchasi, 69","addressLocality":"Toshkent","addressRegion":"Yunusobod tumani","addressCountry":"UZ"}}
+</script>
+</head>
+<body>
+<!-- loading screen (like the 3D Kadastr site), plain HTML so it shows before the app has loaded:
+     the sign turns once, the name slides out, the screen opens once the fonts and the hero picture are in -->
+<div class="preloader" id="preloader" role="status" aria-label="Order Plaza yuklanmoqda">
+  <div class="pl-half pl-top"></div><div class="pl-half pl-bot"></div>
+  <div class="pl-brand">
+    <span class="pl-logo"><img src="assets/img/order-plaza-mark.webp" alt="" width="256" height="256"></span>
+    <span class="pl-name" aria-hidden="true"><span>Order Plaza</span></span>
+  </div>
+  <div class="pl-progress" aria-hidden="true"><i id="plBar"></i></div>
+</div>
+<script>
+/* at least 2.3 s, at most 7 s; the app reports the hero picture with a 'hero:ready' event */
+(function () {
+  var html = document.documentElement, pl = document.getElementById('preloader'), bar = document.getElementById('plBar');
+  if (!html.classList.contains('is-preloading')) { pl.remove(); return; }
+  var t0 = performance.now(), done = false, got = 0, need = 2;
+  function step() { got++; bar.style.transform = 'scaleX(' + Math.min(1, .25 + got / need * .75) + ')'; if (got >= need) open(); }
+  function open() {
+    if (done) return; done = true;
+    setTimeout(function () {
+      bar.style.transform = 'scaleX(1)';
+      pl.classList.add('is-open'); html.classList.remove('is-preloading');
+      window.__preloaderOpen = true; dispatchEvent(new Event('preloader:open'));
+      setTimeout(function () { pl.remove(); }, 1100);
+    }, Math.max(0, 2300 - (performance.now() - t0)));
+  }
+  requestAnimationFrame(function () { bar.style.transform = 'scaleX(.25)'; });
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(step, step);
+  addEventListener('hero:ready', step, { once: true });
+  setTimeout(open, 7000);
+})();
+</script>
+<div id="root"></div>
+<script type="module" src="/src/main.jsx"></script>
+</body>
+</html>
