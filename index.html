@@ -18,48 +18,53 @@
 <link rel="preload" as="image" type="image/webp" href="assets/img/hero-1400.webp"
       imagesrcset="assets/img/hero-800.webp 800w, assets/img/hero-1400.webp 1400w, assets/img/hero-2200.webp 2200w, assets/img/hero-2800.webp 2800w" imagesizes="100vw" fetchpriority="high">
 <link rel="preload" as="image" type="image/webp" href="assets/img/order-plaza-mark.webp">
-<link rel="preload" as="image" type="image/webp" imagesrcset="assets/img/intro-lines-800.webp 800w, assets/img/intro-lines-1400.webp 1400w, assets/img/intro-lines-2200.webp 2200w" imagesizes="100vw">
+<link rel="preload" as="image" type="image/webp" href="assets/img/cloud-1.webp">
+<link rel="preload" as="image" type="image/webp" href="assets/img/cloud-3.webp">
 <style>
-/* Opening: on cream paper the gold sign appears, then the building is drawn in pencil on a narrow sheet that opens
-   out to the full width as the drawing grows (main lines, then every line), turns into a white clay model, the sky
-   and its clouds form over it, the building takes on the colours of the render and the hero's street video comes up. The frames sit exactly over the hero picture, so the hand-over is seamless.
-   Frames: tools/build_intro.py. The full run plays once per visit; a reload in the same tab gets a short one. */
+/* loading screen — like the 3D Kadastr site: on night the gold sign turns once and shrinks, "Order Plaza" slides
+   out from behind it. Then the site opens through clouds: the screen fills with cloud, the clouds part to the sides,
+   up and down (the middle one passing the camera) and the building comes up from behind them.
+   Cloud sprites: tools/build_clouds.py */
 html.is-preloading,html.is-preloading body{overflow:hidden}
-.intro{position:fixed;inset:0;z-index:300;background:#F3F1EB;transition:opacity .9s ease,visibility 0s linear .9s}
-html:not(.is-preloading) .intro:not(.is-done){display:none}
-.intro.is-done{opacity:0;visibility:hidden;pointer-events:none}
-.in-mark{position:absolute;left:50%;top:50%;display:grid;justify-items:center;gap:18px;transform:translate(-50%,-50%);
-  animation:inMark .9s cubic-bezier(.2,.7,.2,1) .1s both}
-.in-mark img{width:clamp(64px,7vw,92px);height:auto}
-.in-mark b{font:600 13px/1 "JetBrains Mono",ui-monospace,monospace;letter-spacing:.32em;text-transform:uppercase;color:#8A6A2A;padding-left:.32em}
-.in-bar{width:min(220px,50vw);height:2px;border-radius:2px;background:rgba(15,26,31,.08);overflow:hidden}
-.in-bar i{display:block;height:100%;background:#D2A954;transform:scaleX(0);transform-origin:0 50%;transition:transform .35s ease-out}
-@keyframes inMark{from{opacity:0;transform:translate(-50%,-44%) scale(.92)}to{opacity:1;transform:translate(-50%,-50%)}}
-.intro.go .in-mark{animation:inMarkOut .6s cubic-bezier(.7,0,.2,1) both}   /* an animation, not a transition: the entry animation still holds its values */
-@keyframes inMarkOut{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-62%) scale(.9)}}
-.in-stage{position:absolute;left:0;top:0;width:100%;height:min(100svh,980px);overflow:hidden}
-.in-f{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 30%;opacity:0}
-/* the sheet opens from the middle out to the full width while the drawing grows; a slow camera settles on the
-   hero framing */
-.intro.go .in-stage{animation:inWide 2.4s cubic-bezier(.65,0,.25,1) .25s both,inCam 4.9s cubic-bezier(.3,.1,.2,1) both}
-@keyframes inWide{from{clip-path:inset(9% 31% 7% 31% round 14px)}to{clip-path:inset(0 0 0 0 round 0)}}
-@keyframes inCam{from{transform:scale(1.07)}to{transform:none}}
-/* 1) main lines, drawn from the middle outwards as the sheet widens  2) every line  3) white model  4) clouds  5) colour */
-.intro.go .in-lines{opacity:1;-webkit-mask:radial-gradient(closest-side,#000 62%,transparent) 50% 52%/0 0 no-repeat;mask:radial-gradient(closest-side,#000 62%,transparent) 50% 52%/0 0 no-repeat;
-  animation:inDraw 2s cubic-bezier(.45,.1,.25,1) .3s both}
-@keyframes inDraw{from{-webkit-mask-size:8% 12%;mask-size:8% 12%}to{-webkit-mask-size:260% 300%;mask-size:260% 300%}}
-.intro.go .in-sketch{animation:inFade .9s ease 1.55s both}
-.intro.go .in-clay{animation:inFade 1s ease 2.35s both}
-.intro.go .in-sky{animation:inSky 1.4s cubic-bezier(.2,.7,.2,1) 2.9s both}
-.intro.go .in-color{animation:inColor 1.2s ease 3.75s both}
-/* the clouds gather: out of a blur, drifting down into place */
-@keyframes inSky{from{opacity:0;filter:blur(16px);transform:translateY(-5%) scale(1.06)}to{opacity:1;filter:none;transform:none}}
-@keyframes inFade{from{opacity:0}to{opacity:1}}
-@keyframes inColor{from{opacity:0;filter:saturate(.2) brightness(1.15)}to{opacity:1;filter:none}}
-/* a reload in the same visit: straight from the sign to the colour */
-.intro.quick.go .in-stage{animation:inCam 1.4s cubic-bezier(.3,.1,.2,1) both}
-.intro.quick.go .in-lines,.intro.quick.go .in-sketch,.intro.quick.go .in-clay,.intro.quick.go .in-sky{display:none}
-.intro.quick.go .in-color{animation:inColor .8s ease .1s both}
+.preloader{position:fixed;inset:0;z-index:300;display:grid;place-items:center;perspective:900px}
+html:not(.is-preloading) .preloader:not(.is-open){display:none}
+.pl-half{position:absolute;left:0;right:0;height:50.5%;background:#05080E;transition:transform 1s cubic-bezier(.7,0,.2,1)}
+.pl-top{top:0}.pl-bot{bottom:0}
+.pl-brand{position:relative;display:flex;align-items:center;transition:opacity .45s ease,transform .9s cubic-bezier(.7,0,.2,1),filter .6s ease}
+.pl-logo{display:block;width:clamp(150px,17vw,230px);height:clamp(150px,17vw,230px);flex:none;transform-style:preserve-3d;
+  animation:plFlip 1.05s cubic-bezier(.45,0,.2,1) .15s both,plShrink .75s cubic-bezier(.7,0,.2,1) 1.25s forwards}
+.pl-logo img{width:100%;height:100%;object-fit:contain;display:block}
+@keyframes plFlip{from{opacity:0;transform:rotateY(0) scale(.7)}25%{opacity:1}to{opacity:1;transform:rotateY(360deg) scale(1)}}
+@keyframes plShrink{to{width:clamp(90px,9vw,130px);height:clamp(90px,9vw,130px)}}
+.pl-name{display:block;max-width:0;overflow:hidden;white-space:nowrap;animation:plOpen .85s cubic-bezier(.7,0,.2,1) 1.3s forwards}
+.pl-name span{display:inline-block;padding-left:clamp(14px,2vw,28px);font:600 clamp(44px,7vw,104px)/1 "Space Grotesk","Manrope",system-ui,sans-serif;letter-spacing:-.035em;color:#fff;
+  transform:translateX(-100%);animation:plSlide .85s cubic-bezier(.2,.8,.2,1) 1.38s forwards}
+@keyframes plOpen{to{max-width:900px}}
+@keyframes plSlide{to{transform:none}}
+.pl-progress{position:absolute;left:50%;bottom:clamp(48px,12vh,110px);width:min(320px,60vw);height:2px;transform:translateX(-50%);border-radius:2px;background:rgba(236,239,243,.1);overflow:hidden;transition:opacity .4s ease}
+.pl-progress i{display:block;height:100%;background:#D2A954;transform:scaleX(0);transform-origin:0 50%;transition:transform .35s ease-out}
+.preloader.is-open{pointer-events:none}
+.preloader.is-open .pl-half{opacity:0;transition:opacity .01s linear .5s}
+.preloader.is-open .pl-brand{opacity:0;transform:scale(1.18);filter:blur(6px)}
+.preloader.is-open .pl-progress{opacity:0}
+/* the clouds: a pale haze and big cumulus over the whole screen, each leaving its own way */
+.pl-sky{position:absolute;inset:0;overflow:hidden;opacity:0;pointer-events:none}
+.pl-haze{position:absolute;inset:0;background:#EEF3F8}
+.pl-c{position:absolute;height:auto;max-width:none;will-change:transform,opacity,filter;transform:scale(var(--f,1),1)}
+.preloader.is-open .pl-sky{animation:skyIn .5s ease-out both}
+.preloader.is-open .pl-haze{animation:hazeOut 1s ease-in-out .55s both}
+.preloader.is-open .pl-c{animation:cloudOut 1.9s cubic-bezier(.55,.05,.3,1) .45s both}
+@keyframes skyIn{from{opacity:0;transform:scale(1.12)}to{opacity:1;transform:none}}
+@keyframes hazeOut{to{opacity:0}}
+@keyframes cloudOut{
+  from{transform:translate(0,0) scale(var(--f,1),1);opacity:1;filter:blur(0)}
+  70%{opacity:1}
+  to{transform:translate(var(--tx),var(--ty)) scale(calc(var(--s) * var(--f,1)),var(--s));opacity:0;filter:blur(10px)}}
+@media (max-width:560px){
+  .pl-logo{width:120px;height:120px}
+  @keyframes plShrink{to{width:58px;height:58px}}
+  .pl-name span{font-size:34px;padding-left:10px}
+}
 </style>
 <script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('is-preloading')</script>
 <script type="application/ld+json">
@@ -68,56 +73,48 @@ html:not(.is-preloading) .intro:not(.is-done){display:none}
 </script>
 </head>
 <body>
-<!-- the opening, plain HTML so it runs before the app has loaded -->
-<div class="intro" id="intro" aria-hidden="true">
-  <div class="in-stage">
-    <img class="in-f in-lines" alt="" sizes="100vw" srcset="assets/img/intro-lines-800.webp 800w, assets/img/intro-lines-1400.webp 1400w, assets/img/intro-lines-2200.webp 2200w">
-    <img class="in-f in-sketch" alt="" sizes="100vw" srcset="assets/img/intro-sketch-800.webp 800w, assets/img/intro-sketch-1400.webp 1400w, assets/img/intro-sketch-2200.webp 2200w">
-    <img class="in-f in-clay" alt="" sizes="100vw" srcset="assets/img/intro-clay-800.webp 800w, assets/img/intro-clay-1400.webp 1400w, assets/img/intro-clay-2200.webp 2200w">
-    <img class="in-f in-sky" alt="" sizes="100vw" srcset="assets/img/intro-sky-800.webp 800w, assets/img/intro-sky-1400.webp 1400w, assets/img/intro-sky-2200.webp 2200w">
-    <img class="in-f in-color" alt="" sizes="100vw" srcset="assets/img/hero-800.webp 800w, assets/img/hero-1400.webp 1400w, assets/img/hero-2200.webp 2200w, assets/img/hero-2800.webp 2800w">
+<!-- loading screen (like the 3D Kadastr site), plain HTML so it shows before the app has loaded:
+     the sign turns once, the name slides out, the screen opens once the fonts and the hero picture are in -->
+<div class="preloader" id="preloader" role="status" aria-label="Order Plaza yuklanmoqda">
+  <div class="pl-half pl-top"></div><div class="pl-half pl-bot"></div>
+  <div class="pl-sky" aria-hidden="true">
+    <div class="pl-haze"></div>
+    <img class="pl-c" src="assets/img/cloud-3.webp" alt="" style="left:-24vw;top:-14vh;width:100vw;--tx:-62vw;--ty:-16vh;--s:1.5">
+    <img class="pl-c" src="assets/img/cloud-1.webp" alt="" style="right:-26vw;top:-10vh;width:104vw;--tx:64vw;--ty:-14vh;--s:1.5">
+    <img class="pl-c" src="assets/img/cloud-2.webp" alt="" style="left:-14vw;top:34vh;width:90vw;--tx:-72vw;--ty:8vh;--s:1.6">
+    <img class="pl-c" src="assets/img/cloud-1.webp" alt="" style="right:-18vw;top:30vh;width:96vw;--tx:72vw;--ty:6vh;--s:1.6;--f:-1">
+    <img class="pl-c" src="assets/img/cloud-2.webp" alt="" style="left:-6vw;top:62vh;width:100vw;--tx:-26vw;--ty:42vh;--s:1.7;--f:-1">
+    <img class="pl-c" src="assets/img/cloud-3.webp" alt="" style="right:-10vw;top:60vh;width:92vw;--tx:28vw;--ty:42vh;--s:1.7">
+    <img class="pl-c" src="assets/img/cloud-1.webp" alt="" style="left:20vw;top:-22vh;width:76vw;--tx:0vw;--ty:-46vh;--s:1.5;--f:-1">
+    <img class="pl-c" src="assets/img/cloud-3.webp" alt="" style="left:6vw;top:12vh;width:92vw;--tx:0vw;--ty:4vh;--s:2.8">
   </div>
-  <div class="in-mark"><img src="assets/img/order-plaza-mark.webp" alt="" width="256" height="256"><b>Order Plaza</b><span class="in-bar"><i id="inBar"></i></span></div>
+  <div class="pl-brand">
+    <span class="pl-logo"><img src="assets/img/order-plaza-mark.webp" alt="" width="256" height="256"></span>
+    <span class="pl-name" aria-hidden="true"><span>Order Plaza</span></span>
+  </div>
+  <div class="pl-progress" aria-hidden="true"><i id="plBar"></i></div>
 </div>
 <script>
-/* waits for the fonts and the four frames (at least 0.9 s, at most 7 s; past that it opens straight onto the hero),
-   then plays: lines 0.35 s (the sheet widening till 2.65 s), every line 1.55 s, clay 2.35 s, clouds 2.9 s,
-   colour 3.75 s, hand-over 4.9 s. A click or a key skips. */
+/* at least 2.3 s, at most 7 s; the app reports the hero picture with a 'hero:ready' event */
 (function () {
-  var html = document.documentElement, el = document.getElementById('intro'), bar = document.getElementById('inBar');
-  if (!html.classList.contains('is-preloading')) { el.remove(); return; }
-  var quick = false;
-  try { quick = sessionStorage.getItem('op-intro') === '1'; sessionStorage.setItem('op-intro', '1'); } catch (e) {}
-  if (quick) el.classList.add('quick');
-  var imgs = [].slice.call(el.querySelectorAll('.in-f')), t0 = performance.now(), need = imgs.length + 1, got = 0, started = false, finished = false, timers = [];
-  function tick() { got++; bar.style.transform = 'scaleX(' + Math.min(1, got / need) + ')'; if (got >= need) start(); }
-  function at(ms, f) { timers.push(setTimeout(f, ms)); }
-  function colour() { if (!window.__preloaderOpen) { window.__preloaderOpen = true; dispatchEvent(new Event('preloader:open')); } }   // the hero video starts loading
-  function finish() {
-    if (finished) return; finished = true;
-    timers.forEach(clearTimeout); colour();
-    el.classList.add('is-done'); html.classList.remove('is-preloading');
-    window.__introDone = true; dispatchEvent(new Event('intro:done'));
-    setTimeout(function () { el.remove(); }, 1000);
+  var html = document.documentElement, pl = document.getElementById('preloader'), bar = document.getElementById('plBar');
+  if (!html.classList.contains('is-preloading')) { pl.remove(); return; }
+  var t0 = performance.now(), done = false, got = 0, need = 2;
+  function step() { got++; bar.style.transform = 'scaleX(' + Math.min(1, .25 + got / need * .75) + ')'; if (got >= need) open(); }
+  function open() {
+    if (done) return; done = true;
+    setTimeout(function () {
+      bar.style.transform = 'scaleX(1)';
+      pl.classList.add('is-open');
+      // the page wakes up under the clouds (the hero picture settles, its lines rise) as they part
+      setTimeout(function () { html.classList.remove('is-preloading'); window.__preloaderOpen = true; dispatchEvent(new Event('preloader:open')); }, 500);
+      setTimeout(function () { pl.remove(); }, 2500);
+    }, Math.max(0, 2300 - (performance.now() - t0)));
   }
-  function start() {
-    if (started) return; started = true;
-    at(Math.max(0, 900 - (performance.now() - t0)), function () {
-      // the stage takes the hero's real height (on a short phone the hero can be taller than the screen), so the
-      // colour frame lands exactly on the hero picture
-      var hero = document.querySelector('.hero'), stage = el.querySelector('.in-stage');
-      if (hero && hero.offsetHeight) stage.style.height = hero.offsetHeight + 'px';
-      el.classList.add('go');
-      if (quick) { at(200, colour); at(1300, finish); return; }
-      at(3750, colour); at(4900, finish);
-    });
-  }
-  imgs.forEach(function (im) { if (im.complete && im.naturalWidth) tick(); else { im.addEventListener('load', tick, { once: true }); im.addEventListener('error', tick, { once: true }); } });
-  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(tick, tick);
-  requestAnimationFrame(function () { bar.style.transform = 'scaleX(.15)'; });
-  setTimeout(function () { if (!started) finish(); }, 7000);
-  el.addEventListener('click', finish);
-  addEventListener('keydown', function k(e) { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { removeEventListener('keydown', k); finish(); } });
+  requestAnimationFrame(function () { bar.style.transform = 'scaleX(.25)'; });
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(step, step);
+  addEventListener('hero:ready', step, { once: true });
+  setTimeout(open, 7000);
 })();
 </script>
 <div id="root"></div>
