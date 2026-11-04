@@ -5,7 +5,7 @@ model takes on the colours of the render, which is the hero picture itself.
 
     python tools/build_intro.py [public/assets/img/hero-2800.webp]
 
-Writes public/assets/img/intro-{lines,sketch,clay}-{800,1400,2200}.webp. Needs only numpy and Pillow.
+Writes public/assets/img/intro-{lines,sketch,clay,sky}-{800,1400,2200}.webp. Needs only numpy and Pillow.
 """
 import sys
 import numpy as np
@@ -59,4 +59,22 @@ lum = 0.62 + 0.38 * np.clip((lum - lum.min()) / (np.percentile(lum, 99.5) - lum.
 clay = np.stack([lum * 1.0, lum * 0.985, lum * 0.955], -1)
 clay = clay * (0.86 + 0.14 * lines[..., None])
 save(clay, 'clay')
-print('ok', src.size)
+
+# the sky with its clouds, cut out of the render: it forms over the white model before the building takes colour.
+# Clouds leave (almost) no ink in the drawing, so in each column the sky ends at the first stroke from the top;
+# a white wall between two vertical lines takes their top, and the skyline is smoothed and held a little high.
+ink = np.minimum(lines, 0.35 + 0.65 * fine) < 0.62
+H, W2 = ink.shape
+first = np.full(W2, H)
+for x in range(W2):
+    ys = np.nonzero(np.convolve(ink[:, x].astype(int), np.ones(5, int), 'same') >= 3)[0]
+    if len(ys): first[x] = ys[0]
+R = 36                                                     # 24 px at 1400 wide
+first = np.array([first[max(0, i - R):i + R + 1].min() for i in range(W2)])
+pad = np.pad(first, 11, mode='edge')
+first = np.array([np.median(pad[i:i + 23]) for i in range(W2)]) - 9
+mask = Image.fromarray(((np.arange(H)[:, None] < first[None, :]) * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(3))
+sky = src.convert('RGBA'); sky.putalpha(mask)
+for w in (800, 1400, 2200):
+    sky.resize((w, round(sky.height * w / sky.width)), Image.LANCZOS).save(OUT.format('sky', w), quality=78, method=6)
+print('ok', src.size, 'sky', round(float((np.asarray(mask) > 127).mean()), 3))
