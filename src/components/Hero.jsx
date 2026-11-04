@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { img, saveData, reduceMotion } from '../lib/img.js';
 
-// the photo shows at once; the street-level loop fades in over it as the loading screen opens
+// the photo shows at once; the street-level loop starts loading as the opening reaches the colour frame and fades in
+// over the photo when the opening hands over to the hero
 function startVideo(box) {
   if (saveData || reduceMotion) return () => {};
   const v = document.createElement('video');
@@ -10,7 +11,9 @@ function startVideo(box) {
   Object.assign(v, { muted: true, loop: true, playsInline: true, autoplay: true, preload: 'auto' });
   v.className = 'hero-vid'; v.setAttribute('aria-hidden', 'true'); v.disablePictureInPicture = true;
   v.src = 'assets/video/hero-loop.mp4?v=1';
-  v.addEventListener('playing', () => v.classList.add('on'), { once: true });
+  // it comes up over the picture once the opening has handed over to the hero (it may already be playing by then)
+  const show = () => v.classList.add('on');
+  v.addEventListener('playing', () => { if (window.__introDone || !document.documentElement.classList.contains('is-preloading')) show(); else addEventListener('intro:done', show, { once: true }); }, { once: true });
   v.addEventListener('error', () => v.remove(), { once: true });
   box.appendChild(v);
   // no decoding while the hero is scrolled away
@@ -20,13 +23,9 @@ function startVideo(box) {
 }
 
 export default function Hero() {
-  const box = useRef(null), photo = useRef(null);
+  const box = useRef(null);
 
   useEffect(() => {
-    // tell the loading screen the picture is in
-    const ready = () => dispatchEvent(new Event('hero:ready'));
-    const p = photo.current;
-    if (p.complete) ready(); else { p.addEventListener('load', ready, { once: true }); p.addEventListener('error', ready, { once: true }); }
     let stop = () => {};
     const go = () => { stop = startVideo(box.current); };
     if (window.__preloaderOpen || !document.documentElement.classList.contains('is-preloading')) go();
@@ -37,7 +36,7 @@ export default function Hero() {
   return (
     <section className="hero" aria-labelledby="hero-title">
       <picture className="hero-img" ref={box}>
-        <img ref={photo} src={img.src('hero', 1400)} srcSet={img.srcset('hero')} sizes="100vw" width="5000" height="3536"
+        <img src={img.src('hero', 1400)} srcSet={img.srcset('hero')} sizes="100vw" width="5000" height="3536"
           alt="Order Plaza biznes-markazi — koʻchadan koʻrinish" fetchPriority="high" decoding="async" />
       </picture>
       <div className="hero-shade" />

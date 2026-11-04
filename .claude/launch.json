@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 8765
+    },
+    {
+      "name": "order-plaza-8766",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--host", "--port", "8766", "--strictPort"],
+      "port": 8766
     }
   ]
 }

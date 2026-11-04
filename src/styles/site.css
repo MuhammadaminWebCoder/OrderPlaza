@@ -103,8 +103,7 @@ p{margin:0 0 1em}
 /* hero */
 .hero{position:relative;min-height:min(100svh,980px);display:flex;align-items:flex-end;color:#fff;background:var(--navy);overflow:hidden}
 .hero-img,.hero-img img{position:absolute;inset:0;width:100%;height:100%}
-.hero-img img{object-fit:cover;object-position:50% 30%;animation:heroIn 1.6s cubic-bezier(.2,.7,.2,1) both}
-@keyframes heroIn{from{transform:scale(1.06);opacity:.4}to{transform:none;opacity:1}}
+.hero-img img{object-fit:cover;object-position:50% 30%}          /* the opening's last frame is this picture, exactly */
 .hero-shade{position:absolute;inset:0;background:
   linear-gradient(180deg,rgba(10,15,25,.6) 0%,rgba(10,15,25,0) 22%),
   linear-gradient(0deg,rgba(10,15,25,.94) 0%,rgba(10,15,25,.55) 38%,rgba(10,15,25,0) 68%)}
