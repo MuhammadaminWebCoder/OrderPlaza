@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host --port 8765",
+    "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview --host --port 8765"
+    "preview": "vite preview --host"
   },
   "dependencies": {
     "react": "^19.3.1",

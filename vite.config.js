@@ -3,9 +3,13 @@ import react from '@vitejs/plugin-react';
 
 // base './': the built site works from any folder or sub-path (GitHub Pages, a plain server, a zip).
 // Built code goes to dist/static so it never mixes with the renders, videos and models in public/assets.
+// Port: 8765, or whatever PORT says when that one is taken.
+const port = Number(process.env.PORT) || 8765;
 export default defineConfig({
   base: './',
   plugins: [react()],
+  server: { port },
+  preview: { port },
   build: {
     assetsDir: 'static',
     target: 'es2020',

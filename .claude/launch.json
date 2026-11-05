@@ -5,7 +5,8 @@
       "name": "order-plaza",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 8765
+      "port": 8765,
+      "autoPort": true
     }
   ]
 }

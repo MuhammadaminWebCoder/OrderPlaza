@@ -23,15 +23,16 @@ const PARAPET = 252;                                   // low wall round the ter
 // building lines (cadastral plans): wing | tower part | main block; the tower's centre bay is 6.4 m wide
 const FX0 = -24.55, FXW = -17.85, FXT = -2.45, FX1 = 24.55, FZF = 7.05, FZB = -7.05;
 const FCX = (FXW + FXT) / 2, FHW = 3.2, FWFL = (FXT - FXW) / 2 - FHW;
+const FSG = 3.5;                                       // west side: wall along the rooms, glass only from here to the street
 // window openings of the facade, so the inside matches the outside
 function windowSpans(key, face, lo, hi, other) {
   if (key === 'b') return [];
   const out = [], glass = (a0, a1, sill = 0.05, top = 2.75) => out.push([a0, a1, sill, top]);
   const bays = (start, len, n, half, sill, top) => { for (let k = 0; k < n; k++) { const c = start + (k + 0.5) * len / n; out.push([c - half, c + half, sill, top]); } };
   if (key === '1') {
-    if (face === 'back') bays(FX0, FX1 - FX0, 14, 0.7, 0.9, 3.4);
-    else if (lo > FX1 - 0.2 && (face === 'back' || (face === 'front' && other < FZF - 1.5))) return [];   // back of the logistics annex: a wall
-    else if (face === 'front' || other < FX0 + 0.8 || other > FX1 - 0.8 || lo > FZF + 0.2) glass(lo, hi, 0.05, 3.6);    // storefront glazing up to the canopy
+    if (face === 'back' || (face === 'front' && lo > FX1 - 0.2 && other < FZF - 1.5)) return [];   // the back of the shops and of the annex: plain wall
+    else if (face === 'left' && other < FX0 + 0.8) glass(Math.max(lo, FSG), hi, 0.05, 3.6);        // west side: glass towards the street only
+    else if (face === 'front' || other > FX1 - 0.8) glass(lo, hi, 0.05, 3.6);                      // storefront glazing up to the canopy
     // (a wall between two shops that reaches the glass stays a plain wall)
   } else if (face === 'front') {
     glass(FX0 + 0.3, FXW - 0.1);                                          // glass wing
@@ -39,12 +40,16 @@ function windowSpans(key, face, lo, hi, other) {
     glass(FCX - 2.7, FCX + 2.7);                                          // curtain wall of the centre bay
     bays(FXT, FX1 - FXT, 12, 0.45, 0.45, 2.6);
   } else if (face === 'back') {
-    bays(FXW, FXT - FXW, 5, 0.45, 0.6, 2.6); bays(FXT, FX1 - FXT, 10, 0.45, 0.6, 2.6);
+    // the same as the front (the wing: two small windows)
+    for (const st of [FXW, FCX + FHW]) { out.push([st + 0.55, st + 1.55, 0.25, 2.85]); out.push([st + FWFL - 1.55, st + FWFL - 0.55, 0.25, 2.85]); }
+    glass(FCX - 2.7, FCX + 2.7);
+    bays(FXT, FX1 - FXT, 12, 0.45, 0.45, 2.6);
+    for (const c of [1.0, 5.3]) out.push([FX0 + c - 0.35, FX0 + c + 0.35, 1.2, 2.4]);
   } else if (face === 'right') {
     if (other > FXT + 1) bays(FZB, FZF - FZB, 5, 0.45, 0.45, 2.6);
     else bays(FZB, FZF - FZB, 4, 0.45, 0.45, 2.6);                        // east face of the tower above the main block
   } else if (face === 'left') {
-    if (other < FX0 + 0.8) glass(lo + 0.2, hi - 0.2);                     // glass wing side
+    if (other < FX0 + 0.8) glass(Math.max(lo + 0.2, FSG), hi - 0.2);      // wall along the rooms, glass towards the street
   }
   return out.map(([a, b, s0, t]) => [Math.max(a, lo + 0.08), Math.min(b, hi - 0.08), s0, t]).filter(([a, b]) => b - a > 0.3);
 }
@@ -207,7 +212,14 @@ export function getPlan(key) {
     };
     for (const r of rooms) if (r.front) glassLine(r, 'x', r === K && M ? FX1 + 0.06 : r.bb[0]);   // the logistics front takes in the strip
     const ENTH = rooms.find(r => r.name === 'Kirish holli');
-    if (ENTH) glassLine(ENTH, 'x');                                     // the entrance hall's glass front, no wall pieces behind it
+    if (ENTH) {
+      // the entrance glass stands in the line of the wing: what the sheet draws in front of it is only the long roof
+      const jl = cj(FZF + 0.7);
+      for (let j = jl + 1; j < h; j++) for (let i = 0; i <= ci(FXW + 0.2); i++) grid[j * w + i] = 0;
+      for (let i = ci(ENTH.bb[0]); i <= ci(FXW + 0.1); i++) grid[jl * w + i] = WIN;
+      ENTH.bb = [ENTH.bb[0], ENTH.bb[1], ENTH.bb[2], z0 + jl * cell];
+      ENTH.z = (ENTH.bb[1] + ENTH.bb[3]) / 2; ENTH.c = [ENTH.x, ENTH.z];
+    }
     if (K) glassLine(K, 'z');                                           // the glazed east end of the logistics hall
     // no doors from shop to shop, nor between the shops and the east stair hall: each opens to the street only
     const street = new Set(rooms.filter(r => r.front).map(r => r.id));
@@ -919,7 +931,9 @@ export function interiorGeometry(key, wallH, storeyH = 3.4) {
     seg(lo, hi, wallH, wallH + 0.03, COL.cap);
   }
   // parapet round the terrace and the chiller roof
-  for (const [a, b, c, d] of maskRects(plan, k => grid[k] === PARAPET)) { shell.add(a, c, 0, 1.1, b, d, COL.wall, 'plaster', true); shell.add(a, c, 1.1, 1.14, b, d, COL.white, 'marble'); }
+  // (the chillers stand behind a full screen wall, open to the sky)
+  const parH = key === '10' ? wallH : 1.1;
+  for (const [a, b, c, d] of maskRects(plan, k => grid[k] === PARAPET)) { shell.add(a, c, 0, parH, b, d, COL.wall, 'plaster', true); shell.add(a, c, parH, parH + 0.04, b, d, COL.white, 'marble'); }
   for (const d of plan.doors) {
     const off = d.o === 'v' ? x0 : z0, offT = d.o === 'v' ? z0 : x0;
     const A = off + d.a, Bv = off + d.b, T0 = offT + d.t0, T1 = offT + d.t1;
@@ -1359,26 +1373,33 @@ function decorate(plan, shell, wallH) {
   let desk = null;
   const rightWall = f => byId.get(f.id)?.name === 'Kirish holli' && f.vert && f.inward < 0 ? 0 : 1;      // east wall, facing into the hall
   if (plan.key === '1') for (const f of cands.sort((p, q) => rightWall(p) - rightWall(q) || q.area - p.area || q.len - p.len)) { const c = deskSpot(f); if (c != null) { feature = f; desk = c; break; } }
+  // the hall stops at the glass in the wing's line, too shallow for the full counter: a slim one on the east wall, between the two lift doors
+  let slim = false;
+  if (plan.key === '1' && desk == null) { const f = cands.find(q => rightWall(q) === 0); if (f) { feature = f; desk = 4.9; slim = true; } }
   if (feature && plan.key === '1') {                    // logo wall: only in the ground-floor lobby
     const { vert, face, inward, A0, A1, top } = feature;
     let mid = (A0 + A1) / 2;
     const add = (s, e2, y0, y1, col, mat, d0, d1) => vert ? shell.add(Math.min(face + inward * d0, face + inward * d1), Math.max(face + inward * d0, face + inward * d1), y0, y1, s, e2, col, mat) : shell.add(s, e2, y0, y1, Math.min(face + inward * d0, face + inward * d1), Math.max(face + inward * d0, face + inward * d1), col, mat);
     if (desk != null) {
       mid = desk;
-      add(mid - 1.5, mid + 1.5, 0, 0.1, '#2F3338', 'gloss', 1.42, 1.88);              // recessed plinth
-      add(mid - 1.5, mid + 1.5, 0.1, 1.05, OAKP, 'veneer', 1.35, 1.95);                  // oak counter
-      add(mid - 1.52, mid + 1.52, 1.05, 1.1, COL.white, 'marble', 1.28, 2.02);        // marble top
-      add(mid - 1.5, mid + 1.5, 0.84, 0.87, COL.gold, 'metal', 1.95, 1.965);          // gold line on the front
-      for (const e of [mid - 1.5, mid + 1.47]) add(e, e + 0.03, 0.1, 1.05, COL.gold, 'metal', 1.35, 1.97);
-      add(mid - 1.45, mid + 1.45, 0.72, 0.76, COL.white, 'marble', 0.85, 1.36);       // work surface behind
-      add(mid - 0.75, mid - 0.15, 0.8, 1.15, COL.black, 'gloss', 1.0, 1.02);          // monitors
-      add(mid + 0.2, mid + 0.8, 0.8, 1.15, COL.black, 'gloss', 1.0, 1.02);
-      add(mid - 0.47, mid - 0.43, 0.76, 0.8, COL.dark, 'metal', 1.0, 1.08); add(mid + 0.48, mid + 0.52, 0.76, 0.8, COL.dark, 'metal', 1.0, 1.08);
-      for (const c of [mid - 0.45, mid + 0.5]) {                                       // two task chairs
+      const o = slim ? 0.9 : 0, L = slim ? 0.9 : 1.5;                                  // closer to the wall and shorter when slim
+      add(mid - L, mid + L, 0, 0.1, '#2F3338', 'gloss', 1.42 - o, 1.88 - o);            // recessed plinth
+      add(mid - L, mid + L, 0.1, 1.05, OAKP, 'veneer', 1.35 - o, 1.95 - o);              // oak counter
+      add(mid - L - 0.02, mid + L + 0.02, 1.05, 1.1, COL.white, 'marble', 1.28 - o, 2.02 - o);   // marble top
+      add(mid - L, mid + L, 0.84, 0.87, COL.gold, 'metal', 1.95 - o, 1.965 - o);        // gold line on the front
+      for (const e of [mid - L, mid + L - 0.03]) add(e, e + 0.03, 0.1, 1.05, COL.gold, 'metal', 1.35 - o, 1.97 - o);
+      add(mid - L + 0.05, mid + L - 0.05, 0.72, 0.76, COL.white, 'marble', slim ? 0.03 : 0.85, 1.36 - o);   // work surface behind
+      add(mid - 0.75, mid - 0.15, 0.8, 1.15, COL.black, 'gloss', 1.0 - o, 1.02 - o);    // monitors
+      add(mid + 0.2, mid + 0.8, 0.8, 1.15, COL.black, 'gloss', 1.0 - o, 1.02 - o);
+      add(mid - 0.47, mid - 0.43, 0.76, 0.8, COL.dark, 'metal', 1.0 - o, 1.08 - o); add(mid + 0.48, mid + 0.52, 0.76, 0.8, COL.dark, 'metal', 1.0 - o, 1.08 - o);
+      if (!slim) for (const c of [mid - 0.45, mid + 0.5]) {                              // two task chairs
         add(c - 0.22, c + 0.22, 0.42, 0.5, COL.dark, 'leather', 0.45, 0.85); add(c - 0.22, c + 0.22, 0.5, 1.0, COL.dark, 'leather', 0.4, 0.46);
         add(c - 0.03, c + 0.03, 0, 0.42, COL.steel, 'metal', 0.62, 0.68); add(c - 0.25, c + 0.25, 0, 0.04, COL.steel, 'metal', 0.62, 0.68);
       }
-      features.push({ type: 'reception', x: vert ? face + inward * 1.9 : mid, z: vert ? mid : face + inward * 1.9 });
+      if (plan.blocked) for (let sA = mid - L; sA <= mid + L; sA += cell) for (let dA = 0; dA <= 2.05 - o; dA += cell) {   // nobody walks through the counter
+        const [x, z] = vert ? [face + inward * dA, sA] : [sA, face + inward * dA]; plan.blocked[plan.cj(z) * w + plan.ci(x)] = 1;
+      }
+      features.push({ type: 'reception', x: vert ? face + inward * (1.9 - o) : mid, z: vert ? mid : face + inward * (1.9 - o) });
     }
     add(mid - 1.9, mid + 1.9, 0.1, top, STONEP, 'concrete', 0, 0.03);               // dark stone backdrop
     const [fx, fz] = vert ? [face + inward * 0.04, mid] : [mid, face + inward * 0.04];
