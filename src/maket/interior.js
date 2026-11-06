@@ -313,6 +313,12 @@ export function getPlan(key) {
     for (let j = cj(-7.45); j < cj(-7.1); j++) grid[j * w + ci(-2.95)] = WALL;
     for (let j = cj(-5.9); j <= cj(-5.45); j++) for (const x of [-2.95, -2.85, -2.75]) grid[j * w + ci(x)] = WALL;
   }
+  // 10th floor: off the stair landing one door to the chillers and one to the corridor (see openDoors); none other opens
+  // onto the chiller yard
+  if (key === '10') {
+    for (let j = cj(0.9); j <= cj(1.35); j++) grid[j * w + ci(-17.45)] = WALL;
+    grid[cj(1.4) * w + ci(-17.75)] = WALL;
+  }
   // a thin wall piece standing free in a lobby or corridor (touching no other wall) is a stray line of the drawing,
   // not a partition: it would only block the way, e.g. in front of the 1st-floor stair. Square columns stay.
   {
@@ -359,12 +365,6 @@ export function getPlan(key) {
       for (const g of groups) for (const c of g) if (!open.has(c)) grid[c] = WIN;
     }
   }
-  // 10th floor: a double door from the corridor out to the chillers, beside the door from the stair
-  if (key === '10') {
-    const hall = grid[cj(0.2) * w + ci(-16.5)];
-    for (let j = cj(-0.55); j <= cj(0.85); j++) for (let i = ci(-18); i <= ci(-17); i++) if (grid[j * w + i] === WALL) grid[j * w + i] = hall;
-    for (let j = cj(0.9); j <= cj(1.35); j++) grid[j * w + ci(-17.45)] = WALL;      // and a piece of wall between the two
-  }
   // numbers run round the floor anticlockwise seen from above: along the street left to right, back along the rear side
   let next = 0;
   const onFront = r => r.bb[3] > 4;
@@ -375,6 +375,7 @@ export function getPlan(key) {
   const plan = { key, P, w, h, cell, x0, z0, grid, at, ci, cj, rooms, byId };
   plan.cores = planCores(plan);
   ensureDoors(plan);
+  if (key === '10') for (let j = cj(-5.75); j <= cj(-4.35); j++) grid[j * w + ci(-17.75)] = WALL;   // the store opens to the office, not the chillers
   openDoors(plan);
   fitDoorsToWalls(plan);
   plan.band = facadeBand(plan);
@@ -571,7 +572,7 @@ function openDoors(plan) {
   }
   for (const [key, pts] of pairs) {
     const [a, b] = key.split('|').map(Number), ra = byId.get(a), rb = byId.get(b);
-    if (!ra || !rb || (ra.type === 'hall' && rb.type === 'hall')) continue;
+    if (!ra || !rb || (ra.type === 'hall' && rb.type === 'hall' && plan.key !== '10')) continue;
     const lab = new Int32Array(pts.length).fill(-1); let nl = 0;
     for (let s0 = 0; s0 < pts.length; s0++) {
       if (lab[s0] >= 0) continue;
