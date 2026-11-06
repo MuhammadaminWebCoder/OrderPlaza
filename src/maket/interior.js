@@ -1018,10 +1018,14 @@ export function interiorGeometry(key, wallH, storeyH = 3.4) {
     const off = d.o === 'v' ? x0 : z0, offT = d.o === 'v' ? z0 : x0;
     const A = off + d.a, Bv = off + d.b, T0 = offT + d.t0, T1 = offT + d.t1;
     const add = (u0, u1, y0, y1, t0, t1, c, m, ao) => d.o === 'v' ? shell.add(u0, u1, y0, y1, t0, t1, c, m, ao) : shell.add(t0, t1, y0, y1, u0, u1, c, m, ao);
-    add(A, Bv, 2.1, wallH, T0, T1, COL.wall, 'plaster');                       // wall above the door
+    // above a door in a glass wall the glass carries on; in a plain wall, the wall
+    const m = (A + Bv) / 2, cellAt = t => d.o === 'v' ? grid[plan.cj(t) * w + plan.ci(m)] : grid[plan.cj(m) * w + plan.ci(t)];
+    const inGlass = cellAt(T0 - 0.05) === WIN || cellAt(T1 + 0.05) === WIN;
+    if (inGlass) { add(A, Bv, 2.1, wallH - 0.1, T0, T1, COL.glass, 'glass'); add(A, Bv, wallH - 0.1, wallH, T0, T1, COL.dark, 'metal'); }
+    else add(A, Bv, 2.1, wallH, T0, T1, COL.wall, 'plaster');
     add(A, Bv, wallH, wallH + 0.03, T0, T1, COL.cap);
     // the finish of the wall round it carries on over the door (corridor stone, conference oak, bathroom marble)
-    for (const [id, u0, u1] of [[d.low, A - 0.025, A], [d.high, Bv, Bv + 0.025]]) {
+    if (!inGlass) for (const [id, u0, u1] of [[d.low, A - 0.025, A], [d.high, Bv, Bv + 0.025]]) {
       const t = byId.get(id)?.type, top = wallH - 0.02;
       if (key === 'b') { if (t === 'hall' || t === 'tech') add(u0, u1, 2.12, top, T0, T1, '#D4D6D3', 'plaster'); }
       else if (t === 'hall') add(u0, u1, 2.12, top, T0, T1, STONEP, 'concrete');
@@ -1037,6 +1041,17 @@ export function interiorGeometry(key, wallH, storeyH = 3.4) {
   // open sky over the terrace and the chiller roof
   const openAir = r => r.type === 'roof' || r.type === 'terrace';
   for (const r of plan.rooms) if (openAir(r)) ceilHoles.push(...maskRects(plan, k => grid[k] === r.id));
+  if (key === '9') {
+    // the roof over the terrace, on its slender columns (as outside)
+    const RX = FX1 - 0.9, RF = FZF - 0.6, RB = FZB + 0.6;
+    ceil.add(FXT - 0.1, RX, wallH + 0.01, wallH + 0.3, RB, RF, COL.white, 'plaster');
+    const cols = [[RX - 0.3, RF - 0.3], [RX - 0.3, RB + 0.3]];
+    for (let x = FXT + 4.5; x < RX; x += 9) cols.push([x, RF - 0.3], [x, RB + 0.3]);
+    for (const [x, z] of cols) {
+      ceil.add(x - 0.11, x + 0.11, 0, wallH, z - 0.11, z + 0.11, COL.white, 'plaster');
+      for (let j = plan.cj(z - 0.2); j <= plan.cj(z + 0.2); j++) for (let i = plan.ci(x - 0.2); i <= plan.ci(x + 0.2); i++) plan.blocked[j * w + i] = 1;
+    }
+  }
   // room floors (greedy rectangles over each room's cells) and LED ceiling panels
   const used = new Uint8Array(w * h);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
