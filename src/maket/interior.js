@@ -156,7 +156,7 @@ function clearWindowPiers({ key, grid, w, h, ci, cj }) {
   const line = (k0, d, n) => {
     let t = 0; while (t < n && grid[k0 + t * d] === 0) t++;
     if (t === n) return;
-    let u = t; while (u < n && u < t + 16 && !isRoom(grid[k0 + u * d])) u++;
+    let u = t; while (u < n && u < t + 16 && !isRoom(grid[k0 + u * d])) { if (grid[k0 + u * d] === STAIR) return; u++; }
     const v = grid[k0 + u * d]; if (u === n || !isRoom(v)) return;
     for (let q = t; q < Math.max(u, t + T); q++) grid[k0 + q * d] = q < t + T ? WALL : v;   // (where the sheet leaves the wall out, it closes)
   };
@@ -164,6 +164,9 @@ function clearWindowPiers({ key, grid, w, h, ci, cj }) {
   const front = c => across(c, x => line((h - 1) * w + ci(x), -w, h)), back = c => across(c, x => line(ci(x), w, h));
   const tower = FLANK_WINS.flatMap(c => [FXW + c, FXT - c]);
   if (key !== '10') { tower.forEach(c => { front(c); back(c); }); WING_WINS.forEach(c => back(FX0 + c)); }
+  // the west glass of the hall is one window: the wall behind it is straight, on floors 2, 7, 8, 9 the sheets have a thick
+  // stretch and a piece of wall from it across the way to the stair
+  if (key !== '10') for (let j = cj(5.15); j <= cj(7.6); j++) line(j * w, 1, w);
   if (key === '9' || key === '10') return;                               // no main block with these windows up there
   for (let k = 0; k < 9; k++) { const c = FXT + 1.5 + 3 * k; front(c); back(c); }
   for (const c of EAST_WINS) across(c, z => line(cj(z) * w + w - 1, -1, w));
@@ -297,11 +300,12 @@ export function getPlan(key) {
   }
   if (BACK_BAYS.has(key)) pushBackBays({ grid, w, ci, cj, rooms, cell });
   if (BACK_BAYS.has(key)) clearWindowPiers({ key, grid, w, h, ci, cj });
-  // floors 2, 7, 8, 9: the piece of wall the sheets draw from the west wall across the way to the stair is not there
-  // (as on floors 3 to 6)
-  if (['2', '7', '9'].includes(key)) {
-    const hall = grid[cj(6.4) * w + ci(-22.5)];
-    for (let j = cj(5.2); j <= cj(6.05); j++) for (let i = ci(-24.35); i <= ci(-23.3); i++) if (grid[j * w + i] === WALL) grid[j * w + i] = hall;
+  // 9th floor, the east wall of the tower: the door to the terrace in a plain wall, no slivers of glass beside it
+  if (key === '9') {
+    const T = rooms.find(r => r.type === 'terrace');
+    for (let j = cj(-6.6); j < cj(-5.9); j++) if (grid[j * w + ci(-2.75)] === WIN) grid[j * w + ci(-2.75)] = T.id;
+    for (let j = cj(-7.45); j < cj(-7.1); j++) grid[j * w + ci(-2.95)] = WALL;
+    for (let j = cj(-5.9); j <= cj(-5.45); j++) for (const x of [-2.95, -2.85, -2.75]) grid[j * w + ci(x)] = WALL;
   }
   // a thin wall piece standing free in a lobby or corridor (touching no other wall) is a stray line of the drawing,
   // not a partition: it would only block the way, e.g. in front of the 1st-floor stair. Square columns stay.
