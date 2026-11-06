@@ -281,6 +281,20 @@ export function getPlan(key) {
     }
     streetOnly[key] = street;
   }
+  // the small space in the south-east corner is no room of its own: it is the end of the office beside it, no wall between
+  {
+    const end = rooms.find(r => r.type === 'room' && r.c[0] > 21.5 && r.c[1] < -5 && r.area < 10);
+    const main = end && rooms.find(r => r.type === 'room' && r !== end && r.bb[2] > end.bb[0] - 0.5 && r.bb[2] <= end.bb[0] + 0.1 && r.c[1] < -2);
+    if (main) {
+      for (let k = 0; k < w * h; k++) if (grid[k] === end.id) grid[k] = main.id;
+      for (let j = cj(end.bb[1]); j <= cj(end.bb[3] + 0.5); j++) {
+        const row = j * w; let b = -1;
+        for (let i = ci(end.bb[0]) - 8; i < ci(end.bb[0]) + 8; i++) { if (grid[row + i] === main.id) { if (b >= 0 && i - b > 1) { let solid = true; for (let q = b + 1; q < i; q++) if (grid[row + q] !== WALL) solid = false; if (solid) for (let q = b + 1; q < i; q++) grid[row + q] = main.id; } b = i; } }
+      }
+      main.area += end.area; main.bb = [main.bb[0], Math.min(main.bb[1], end.bb[1]), end.bb[2], main.bb[3]];
+      rooms.splice(rooms.indexOf(end), 1);
+    }
+  }
   if (BACK_BAYS.has(key)) pushBackBays({ grid, w, ci, cj, rooms, cell });
   if (BACK_BAYS.has(key)) clearWindowPiers({ key, grid, w, h, ci, cj });
   // a thin wall piece standing free in a lobby or corridor (touching no other wall) is a stray line of the drawing,

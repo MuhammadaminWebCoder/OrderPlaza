@@ -40,7 +40,7 @@ const level = n => { const b = base(n); return b === 0 ? '±0,00' : (b > 0 ? '+'
 
 const FLOORS = {
   0: { lbl: 'Yerto‘la', short: 'Y', text: 'Texnik xonalar, omborlar, zinapoya va ikkita lift.' },
-  1: { lbl: 'Savdo qavati', text: 'Koʻcha tomonda 7 ta doʻkon, gʻarbiy qanotda kirish holli (3 m oldinga chiqqan), sharqiy uchida logistika zali.' },
+  1: { lbl: 'Savdo qavati', text: 'Koʻcha tomonda 7 ta doʻkon, gʻarbiy qanotda kirish holli, sharqiy uchida logistika zali.' },
   9: { lbl: 'Terrasa qavati', text: 'Minora qismida ofislar; asosiy blokda ichkariga chekingan ofislar va ularni aylanib oʻtgan ochiq terrasa.' },
   10: { lbl: 'Texnik qavat', text: 'Faqat minora ustida, lift kelmaydi. Zinadan chiqqach ikki eshik: biri katta xonalarga olib boradigan yoʻlakka, biri tepasi ochiq chiller maydoniga.' },
 };
