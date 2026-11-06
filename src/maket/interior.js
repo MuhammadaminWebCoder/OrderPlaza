@@ -23,6 +23,8 @@ const PARAPET = 252;                                   // low wall round the ter
 // building lines (cadastral plans): wing | tower part | main block; the tower's centre bay is 6.4 m wide
 const FX0 = -24.55, FXW = -17.85, FXT = -2.45, FX1 = 24.55, FZF = 7.05, FZB = -7.05;
 const FCX = (FXW + FXT) / 2, FHW = 3.2, FWFL = (FXT - FXW) / 2 - FHW;
+const FBZ1 = FZB - 0.65, FBZ2 = FZB - 1.75;           // the tower's back: flank bays and centre bay, like the front
+const BACK_BAYS = new Set(['2', '3', '6', '7', '9', '10']);
 const FSG = 3.5;                                       // west side: wall along the rooms, glass only from here to the street
 // window openings of the facade, so the inside matches the outside
 function windowSpans(key, face, lo, hi, other) {
@@ -139,14 +141,37 @@ function boxGeometry(list) {
 
 /* ---------- plan decoding + room classification ---------- */
 const cache = {};
+// the sheets draw the tower's back flat, but it stands out like the front: the rooms behind it run out into the bays,
+// the outer wall moves to the line of the bays; dividing walls follow it
+function pushBackBays({ grid, w, ci, cj, rooms, cell }) {
+  const iA = ci(FXW), iB = ci(FXT), cA = ci(FCX - FHW), cB = ci(FCX + FHW), T = 3, jLim = cj(-5), j1 = cj(FBZ1), j2 = cj(FBZ2), won = new Map();
+  for (let i = iA; i <= iB; i++) {
+    const end = i < iA + T || i > iB - T, centre = i >= cA && i <= cB, jo = centre ? j2 : j1;
+    if (end) { for (let j = j1; grid[j * w + i] === 0; j++) grid[j * w + i] = WALL; continue; }
+    let jr = jo, v = 0;
+    for (; jr <= jLim; jr++) if (isRoom(grid[jr * w + i])) { v = grid[jr * w + i]; break; }
+    const side = centre && (i < cA + T || i > cB - T);            // the sides of the centre bay
+    for (let j = jo; j < (v ? jr : jLim); j++) {
+      const k = j * w + i;
+      if (!v || j < jo + T || (side && j < j1 + T)) grid[k] = WALL;
+      else { grid[k] = v; won.set(v, (won.get(v) || 0) + 1); }
+    }
+  }
+  for (const r of rooms) if (won.has(r.id)) {
+    let z = r.bb[1];
+    for (let i = ci(r.bb[0]); i <= ci(r.bb[2]); i++) for (let j = j2; j < cj(z); j++) if (grid[j * w + i] === r.id) { z = FBZ2 + (j - j2) * cell; break; }
+    r.area += won.get(r.id) * cell * cell; r.bb = [r.bb[0], z, r.bb[2], r.bb[3]];
+  }
+}
 // the 1st floor's east stair hall (beside the last shops), entered from the street
 const isEastHall = r => r.type === 'hall' && r.c[0] > 21 && r.c[0] < FX1 && r.area > 10;
 const streetOnly = {};           // per plan: rooms that open to the street only (no inner doors are cut into them)
 export function getPlan(key) {
   if (cache[key]) return cache[key];
-  const P = PLANS[key], { w, h, cell, x0, z0 } = P;
+  const P = PLANS[key], { w, cell, x0 } = P;
+  const grow = BACK_BAYS.has(key) ? Math.ceil((P.z0 - FBZ2 + 0.45) / cell) : 0, h = P.h + grow, z0 = +(P.z0 - grow * cell).toFixed(2);   // rows for the bays behind the sheet's edge
   const grid = new Uint8Array(w * h);
-  for (let i = 0, o = 0; i < P.rle.length; i += 2) { grid.fill(P.rle[i], o, o + P.rle[i + 1]); o += P.rle[i + 1]; }
+  for (let i = 0, o = grow * w; i < P.rle.length; i += 2) { grid.fill(P.rle[i], o, o + P.rle[i + 1]); o += P.rle[i + 1]; }
   const ci = x => Math.floor((x - x0) / cell + 1e-6), cj = z => Math.floor((z - z0) / cell + 1e-6);
   const at = (i, j) => (i < 0 || j < 0 || i >= w || j >= h) ? 0 : grid[j * w + i];
   cleanGrid(grid, w, h);
@@ -229,6 +254,7 @@ export function getPlan(key) {
     }
     streetOnly[key] = street;
   }
+  if (BACK_BAYS.has(key)) pushBackBays({ grid, w, ci, cj, rooms, cell });
   // a thin wall piece standing free in a lobby or corridor (touching no other wall) is a stray line of the drawing,
   // not a partition: it would only block the way, e.g. in front of the 1st-floor stair. Square columns stay.
   {
@@ -275,10 +301,11 @@ export function getPlan(key) {
       for (const g of groups) for (const c of g) if (!open.has(c)) grid[c] = WIN;
     }
   }
-  // numbers: front row first, left to right
+  // numbers run round the floor anticlockwise seen from above: along the street left to right, back along the rear side
   let next = 0;
+  const onFront = r => r.bb[3] > 4;
   rooms.filter(r => TYPES[r.type].pick)
-    .sort((a, b) => (Math.sign(b.z) - Math.sign(a.z)) || (a.x - b.x))
+    .sort((a, b) => (onFront(b) - onFront(a)) || (onFront(a) ? a.x - b.x : b.x - a.x))
     .forEach(r => r.idx = ++next);
   const byId = new Map(rooms.map(r => [r.id, r]));
   const plan = { key, P, w, h, cell, x0, z0, grid, at, ci, cj, rooms, byId };
@@ -1018,7 +1045,12 @@ export function facadeGeometry(key, wallH) {
   for (const [a, b, c, d] of maskRects(plan, k => grid[k] === PARAPET)) B.add(a, c, 0, 1.1, b, d, W, 'wall');
   return B.geometries();
 }
-export const planOutline = key => PLANS[key].outline;
+export function planOutline(key) {
+  const o = PLANS[key].outline;
+  if (!BACK_BAYS.has(key)) return o;
+  const zb = Math.min(...o.map(p => p[1])), k = o.findIndex((p, n) => p[1] === zb && o[(n + 1) % o.length][1] === zb), xa = Math.max(o[k][0], FXW - 0.05);
+  return [...o.slice(0, k + 1), [xa, zb], [xa, FBZ1], [FCX - FHW, FBZ1], [FCX - FHW, FBZ2], [FCX + FHW, FBZ2], [FCX + FHW, FBZ1], [FXT + 0.05, FBZ1], [FXT + 0.05, zb], ...o.slice(k + 1)];
+}
 export function planFloorOutline(key) {
   const { w, h, grid, x0, z0, cell } = getPlan(key);
   const inside = (i, j) => i >= 0 && j >= 0 && i < w && j < h && grid[j * w + i] !== 0;
