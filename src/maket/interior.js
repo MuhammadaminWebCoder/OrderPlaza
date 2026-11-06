@@ -43,7 +43,7 @@ function windowSpans(key, face, lo, hi, other) {
     else if (face === 'front' || other > FX1 - 0.8) glass(lo, hi, 0.05, 3.6);                      // storefront glazing up to the canopy
     // (a wall between two shops that reaches the glass stays a plain wall)
   } else if (face === 'front') {
-    glass(FX0 + 0.3, FXW - 0.1);                                          // glass wing
+    glass(FX0, FXW - 0.1);                                                // glass wing
     tower();
     out.find(o => o[0] < -15 && o[1] > -14)[0] = -14.85;                  // a dividing wall meets this window: the glass stops at it
     glass(FCX - 2.7, FCX + 2.7);                                          // curtain wall of the centre bay
@@ -58,7 +58,7 @@ function windowSpans(key, face, lo, hi, other) {
     if (other > FXT + 1) EAST_WINS.forEach(win);
     else bays(FZB, FZF - FZB, 4);                        // east face of the tower above the main block
   } else if (face === 'left') {
-    if (other < FX0 + 0.8) glass(Math.max(lo + 0.2, FSG), hi - 0.2);      // wall along the rooms, glass towards the street
+    if (other < FX0 + 0.8) glass(Math.max(lo, FSG), hi);                  // wall along the rooms, glass towards the street
   }
   return out.map(([a, b, s0, t]) => [Math.max(a, lo + 0.08), Math.min(b, hi - 0.08), s0, t]).filter(([a, b]) => b - a > 0.3);
 }
@@ -316,7 +316,12 @@ export function getPlan(key) {
   // 10th floor: off the stair landing one door to the chillers and one to the corridor (see openDoors); none other opens
   // onto the chiller yard
   if (key === '10') {
-    for (let j = cj(0.9); j <= cj(1.35); j++) grid[j * w + ci(-17.45)] = WALL;
+    // the east wall of the yard runs straight: the sheet steps it 0.3 m east, with a slanting piece, in front of the corridor
+    const yard = rooms.find(r => r.type === 'roof').id, hall = grid[cj(0.2) * w + ci(-16.5)];
+    for (let j = cj(-0.95); j <= cj(1.35); j++) for (let i = ci(-19.2); i <= ci(-17); i++) {
+      const k = j * w + i;
+      if (i < ci(-17.75)) { if (grid[k] === WALL) grid[k] = yard; } else grid[k] = i === ci(-17.75) ? WALL : hall;
+    }
     grid[cj(1.4) * w + ci(-17.75)] = WALL;
   }
   // a thin wall piece standing free in a lobby or corridor (touching no other wall) is a stray line of the drawing,
@@ -1167,11 +1172,15 @@ function facadeBand(plan) {
   plan.bandDir = dir;                                              // 1 +x, 2 -x, 3 +z, 4 -z: the side the outside is on
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const k = j * w + i, v = grid[k]; if (v !== WALL && v !== WIN) continue;
+    // the side where the outside is nearest (a corner belongs to both faces: each takes its own half, not the first one all)
+    let best = 8;
     for (const [di, dj, code] of [[1, 0, 1], [-1, 0, 2], [0, 1, 3], [0, -1, 4]]) {
-      let hit = false;
       // up to 7 cells: the DWG facade walls are as much as 0.7 m thick
-      for (let q = 1; q <= 7; q++) { const ii = i + di * q, jj = j + dj * q; if (ii < 0 || jj < 0 || ii >= w || jj >= h) { hit = true; break; } const u = grid[jj * w + ii]; if (outside[jj * w + ii]) { hit = true; break; } if (u !== WALL && u !== WIN) break; }
-      if (hit) { band[k] = v === WIN ? 2 : 1; dir[k] = code; break; }   // 2: glazing
+      for (let q = 1; q <= 7 && q < best; q++) {
+        const ii = i + di * q, jj = j + dj * q, off = ii < 0 || jj < 0 || ii >= w || jj >= h;
+        if (off || outside[jj * w + ii]) { best = q; band[k] = v === WIN ? 2 : 1; dir[k] = code; break; }   // 2: glazing
+        const u = grid[jj * w + ii]; if (u !== WALL && u !== WIN) break;
+      }
     }
   }
   return band;
