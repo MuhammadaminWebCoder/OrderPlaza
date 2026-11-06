@@ -2,7 +2,7 @@
 // Geometry comes from the cadastral plans (chizma.pdf): wing 6.70 m + main block 42.40 x 14.10 m. Storey heights from the DWG.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { TYPES, MODELS, ROOF10, getPlan, interiorGeometry, nearestFree, findPath, drawMap, spawnPoint, facadeGeometry, planOutline, planCover, planRooms, planFloorOutline } from './interior.js';
+import { TYPES, MODELS, ROOF10, FLANK_WINS, EAST_WINS, WING_WINS, getPlan, interiorGeometry, nearestFree, findPath, drawMap, spawnPoint, facadeGeometry, planOutline, planCover, planRooms, planFloorOutline } from './interior.js';
 
 // light build: Lambert shading (no PBR, no environment map, no shadow maps) — the maket has to run on ordinary laptops
 // and phones; PBR-only options are dropped so callers can keep passing them
@@ -25,7 +25,7 @@ const ZF = 7.05, ZB = -7.05, ZWF = 7.65, ZWB = -6.15, ZW1 = -4.6;      // ZW1: b
 const ENT = { x0: -24.3, x1: -17.6, z0: ZWF, z1: 11.0 };                 // 1st floor entrance hall, 3 m out of the wing
 const LG = { x0: X1, x1: 35.0, z0: 0.8, z1: 7.05 };                      // logistics hall past the east end (10.25 m)
 const SB = { x0: X1, x1: 26.7, z0: -3.4, z1: 0.8 };                      // stair box behind it
-const PIL = [XT, XT + 6.75, XT + 13.5, XT + 20.25, X1];                  // pilasters on the main block's faces, on the lines between the windows
+const PIL = [XT, XT + 6, XT + 12, XT + 18, XT + 24, X1];                 // pilasters on the main block's faces: the 6 m room grid, between the windows
 const S9 = { f: 1.45, b: 1.45, r: 3.05 };                                // 9th floor: offices set back behind the terrace
 const X9 = X1 - S9.r, ZF9 = ZF - S9.f, ZB9 = ZB + S9.b;
 const TF9 = ZF + 0.15, TB9 = ZB - 0.15;                                  // terrace slab: 14.40 m deep, 0.15 m out over the facades below
@@ -125,31 +125,27 @@ export async function initMaket({ img, openImages }) {
     if (spandrel > 0) g.fillRect(x0, spandrel - 0.03, w, 0.06);
     g.fillRect(x0, h - 0.05, w, 0.05);
   }
-  // every window of the building is this one, on an even grid; `skip`: the places a gold strip stands instead
-  function drawBays(g, w, h, bays, { ww = 0.9, y0 = 0.5, y1 = 3.0, railing = true, bg = C.white, skip = [] } = {}) {
-    g.fillStyle = bg; g.fillRect(0, 0, w, h);
-    const bw = w / bays;
-    for (let i = 0; i < bays; i++) {
-      const x = bw * i, cx = x + bw / 2;
-      g.fillStyle = C.groove; g.fillRect(x + 0.3, 0, 0.04, h); g.fillRect(x + bw - 0.34, 0, 0.04, h);
-      if (skip.includes(i)) continue;
+  // every window of the building is this one (the sheets' 1.5 m window); `at`: their centres
+  function drawWindows(g, w, h, at, { ww = 1.5, y0 = 0.5, y1 = 3.0 } = {}) {
+    g.fillStyle = C.white; g.fillRect(0, 0, w, h);
+    for (const cx of at) {
+      g.fillStyle = C.groove; g.fillRect(cx - ww / 2 - 0.22, 0, 0.04, h); g.fillRect(cx + ww / 2 + 0.18, 0, 0.04, h);
       g.fillStyle = C.frame; g.fillRect(cx - ww / 2 - 0.1, y0 - 0.1, ww + 0.2, y1 - y0 + 0.2);
       const gr = g.createLinearGradient(0, y0, 0, y1);
       gr.addColorStop(0, '#252F39'); gr.addColorStop(1, '#4A5763');
       g.fillStyle = gr; g.fillRect(cx - ww / 2, y0, ww, y1 - y0);
       g.fillStyle = '#5F6C77';
       g.fillRect(cx - 0.025, y0, 0.05, y1 - y0); g.fillRect(cx - ww / 2, y1 - 0.6, ww, 0.05);
-      if (railing) {
-        g.fillStyle = C.rail; g.fillRect(cx - ww / 2 - 0.05, y0 + 0.9, ww + 0.1, 0.05);
-        for (let r = cx - ww / 2; r <= cx + ww / 2 + 1e-3; r += 0.11) g.fillRect(r - 0.012, y0, 0.024, 0.9);
-      }
+      g.fillStyle = C.rail; g.fillRect(cx - ww / 2 - 0.05, y0 + 0.9, ww + 0.1, 0.05);
+      for (let r = cx - ww / 2; r <= cx + ww / 2 + 1e-3; r += 0.11) g.fillRect(r - 0.012, y0, 0.024, 0.9);
     }
     g.fillStyle = C.groove; g.fillRect(0, 0, w, 0.04);
   }
+  const even = (w, n) => Array.from({ length: n }, (_, k) => (k + 0.5) * w / n);
   const W_T = XT - XW, W_M = X1 - XT, W_W = XW - X0, D = ZF - ZB, D_W = ZWF - ZWB;
   const T = {};
-  T.mainFront = canvasTex(W_M, FH, (g, w, h) => drawBays(g, w, h, 12, { skip: [3, 8] }));
-  T.mainSide = canvasTex(D, FH, (g, w, h) => drawBays(g, w, h, 5, { skip: [2] }));
+  T.mainFront = canvasTex(W_M, FH, (g, w, h) => drawWindows(g, w, h, even(w, 9)));   // one every 3 m, two to a room
+  T.mainSide = canvasTex(D, FH, (g, w, h) => drawWindows(g, w, h, EAST_WINS.map(z => z + w / 2)));
   const HW = 3.2;                                     // half width of the projecting centre bay (6.4 m)
   const BAY = 1.75;                                   // how far the centre bay stands out of the facade
   const LOBBY_H = 3.6;                                // entrance hall front: glass up to 3.6 m, slab above
@@ -159,7 +155,9 @@ export async function initMaket({ img, openImages }) {
     glassRegion(g, 0.85, w - 0.85, h, 1.1, 0.0);
     g.fillStyle = C.white; g.fillRect(0.85, h - 0.32, w - 1.7, 0.32);   // slab band between storeys
   });
-  T.towerFlank = canvasTex(W_FL, FH, (g, w, h) => drawBays(g, w, h, 2));
+  // each pair stands towards the centre bay; the texture of the back runs the other way
+  T.flankA = canvasTex(W_FL, FH, (g, w, h) => drawWindows(g, w, h, FLANK_WINS));
+  T.flankB = canvasTex(W_FL, FH, (g, w, h) => drawWindows(g, w, h, FLANK_WINS.map(c => w - c)));
   // entrance hall standing out of the wing: glass box with double doors and a white fascia
   const lobbyFace = (g, w, h, doors) => {
     glassRegion(g, 0, w, h, 1.25, 0);
@@ -173,7 +171,7 @@ export async function initMaket({ img, openImages }) {
     }
   };
   T.lobbyFront = canvasTex(ENT.x1 - ENT.x0, LOBBY_H, (g, w, h) => lobbyFace(g, w, h, true));
-  T.towerSide = canvasTex(D, FH, (g, w, h) => drawBays(g, w, h, 4));
+  T.towerSide = canvasTex(D, FH, (g, w, h) => drawWindows(g, w, h, even(w, 4)));
   T.wingFront = canvasTex(W_W, FH, (g, w, h) => glassRegion(g, 0, w, h, 1.1, 0.8));
   // west side: solid wall where the rooms are, a strip of glass towards the street (a = where the glass starts)
   const sideFace = (g, w, h, a) => {
@@ -183,7 +181,7 @@ export async function initMaket({ img, openImages }) {
   };
   T.wingSide = canvasTex(D_W, FH, (g, w, h) => sideFace(g, w, h, SG - ZWB));
   T.headSide = canvasTex(SH.z1 - SH.z0, FH, (g, w, h) => sideFace(g, w, h, SG - SH.z0));
-  T.wingBack = canvasTex(W_W, FH, (g, w, h) => drawBays(g, w, h, 3, { skip: [1] }));   // a window either side of the gold strip
+  T.wingBack = canvasTex(W_W, FH, (g, w, h) => drawWindows(g, w, h, WING_WINS.map(c => w - c)));   // a window either side of the gold strip
   T.glass9 = canvasTex(X9 - XT, FH, (g, w, h) => glassRegion(g, 0, w, h, 1.5, 0.35));
   T.glass9s = canvasTex(ZF9 - ZB9, FH, (g, w, h) => glassRegion(g, 0, w, h, 1.5, 0.35));
   // air-cooled chiller casing: light steel panels, dark condenser louvres along the long sides
@@ -318,7 +316,7 @@ export async function initMaket({ img, openImages }) {
     gold: std({ map: T.girih, metalness: 0.45, roughness: 0.38, emissive: '#3a2a08', emissiveIntensity: 0.6 }),
     crown: std({ map: T.crown }),
     mainFront: facade(T.mainFront), mainSide: facade(T.mainSide),
-    towerCenter: facade(T.towerCenter), towerFlank: facade(T.towerFlank), towerSide: facade(T.towerSide),
+    towerCenter: facade(T.towerCenter), flankA: facade(T.flankA), flankB: facade(T.flankB), towerSide: facade(T.towerSide),
     wingFront: facade(T.wingFront),
     wingSide: facade(T.wingSide), headSide: facade(T.headSide), wingBack: facade(T.wingBack),
     glass9: facade(T.glass9),
@@ -413,14 +411,14 @@ export async function initMaket({ img, openImages }) {
     g.add(box(XW, XT, y0, y1, ZB, ZF, faces(M.towerSide, M.white, M.white, M.white)));
     const cx = (XW + XT) / 2;
     // step 2: flank bays 0.7 m proud of the wing / main block; step 1: centre bay BAY m proud
-    g.add(box(XW, cx - HW, y0, y1, ZF - 0.01, ZF + 0.65, faces(M.white, M.white, M.towerFlank, M.white)));
-    g.add(box(cx + HW, XT, y0, y1, ZF - 0.01, ZF + 0.65, faces(M.white, M.white, M.towerFlank, M.white)));
+    g.add(box(XW, cx - HW, y0, y1, ZF - 0.01, ZF + 0.65, faces(M.white, M.white, M.flankA, M.white)));
+    g.add(box(cx + HW, XT, y0, y1, ZF - 0.01, ZF + 0.65, faces(M.white, M.white, M.flankB, M.white)));
     g.add(box(cx - HW, cx + HW, y0, y1, ZF - 0.01, ZF + BAY, faces(M.white, M.white, M.towerCenter, M.white)));
     for (const x of [cx - HW, cx + HW]) g.add(box(x - 0.2, x + 0.2, y0, y1, ZF + 0.6, ZF + BAY + 0.2, M.white));   // framing fins
     for (const x of [XW, XT]) g.add(box(x - 0.2, x + 0.2, y0, y1, ZF, ZF + 0.85, M.white));
     // the back of the tower is the same as its front: flanks, centre bay, fins
-    g.add(box(XW, cx - HW, y0, y1, ZB - 0.65, ZB + 0.01, faces(M.white, M.white, M.white, M.towerFlank)));
-    g.add(box(cx + HW, XT, y0, y1, ZB - 0.65, ZB + 0.01, faces(M.white, M.white, M.white, M.towerFlank)));
+    g.add(box(XW, cx - HW, y0, y1, ZB - 0.65, ZB + 0.01, faces(M.white, M.white, M.white, M.flankB)));
+    g.add(box(cx + HW, XT, y0, y1, ZB - 0.65, ZB + 0.01, faces(M.white, M.white, M.white, M.flankA)));
     g.add(box(cx - HW, cx + HW, y0, y1, ZB - BAY, ZB + 0.01, faces(M.white, M.white, M.white, M.towerCenter)));
     for (const x of [cx - HW, cx + HW]) g.add(box(x - 0.2, x + 0.2, y0, y1, ZB - BAY - 0.2, ZB - 0.6, M.white));
     for (const x of [XW, XT]) g.add(box(x - 0.2, x + 0.2, y0, y1, ZB - 0.85, ZB, M.white));
@@ -428,7 +426,7 @@ export async function initMaket({ img, openImages }) {
       g.add(box(XT, X1, y0, y1, ZB, ZF, faces(M.mainSide, M.white, M.mainFront, M.mainFront)));
       const p = PIL.flatMap(x => { const px = x + (x === XT ? 0.25 : x === X1 ? -0.25 : 0), py = y0 + fh(n) / 2; return [[px, py, ZF + 0.11], [px, py, ZB - 0.11]]; });
       g.add(instBoxes(0.5, fh(n), 0.22, M.white, p));
-      for (const gx of [XT + 7.875, XT + 19.125]) {        // each in a window's place on the grid
+      for (const gx of [XT + 9, XT + 21]) {                // in the piers between two windows
         g.add(box(gx - 0.7, gx + 0.7, y0, y1, ZF + 0.22, ZF + 0.34, M.gold));
         g.add(box(gx - 0.7, gx + 0.7, y0, y1, ZB - 0.34, ZB - 0.22, M.gold));
       }

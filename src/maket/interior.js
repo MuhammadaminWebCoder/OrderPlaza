@@ -22,16 +22,21 @@ const WALL = 255, STAIR = 254, WIN = 253;
 const PARAPET = 252;                                   // low wall round the terrace and the chiller roof
 // building lines (cadastral plans): wing | tower part | main block; the tower's centre bay is 6.4 m wide
 const FX0 = -24.55, FXW = -17.85, FXT = -2.45, FX1 = 24.55, FZF = 7.05, FZB = -7.05;
-const FCX = (FXW + FXT) / 2, FHW = 3.2, FWFL = (FXT - FXW) / 2 - FHW;
+const FCX = (FXW + FXT) / 2, FHW = 3.2;
 const FBZ1 = FZB - 0.65, FBZ2 = FZB - 1.75;           // the tower's back: flank bays and centre bay, like the front
 const BACK_BAYS = new Set(['2', '3', '6', '7', '9', '10']);
+export const FLANK_WINS = [1.4, 3.5];                 // window centres in a tower flank, from its outer end (the sheets' positions)
+export const EAST_WINS = [-5.75, -3.1, 3.1, 5.75];    // on the east end, either side of the gold strip
+export const WING_WINS = [1.6, 5.1];                         // in the back of the wing, from its west end, either side of the gold strip
 const FSG = 3.5;                                       // west side: wall along the rooms, glass only from here to the street
 // window openings of the facade, so the inside matches the outside
 function windowSpans(key, face, lo, hi, other) {
   if (key === 'b') return [];
   const out = [], glass = (a0, a1, sill = 0.05, top = 2.75) => out.push([a0, a1, sill, top]);
-  // one window everywhere, on an even grid (the same as outside); `skip`: where a gold strip takes a window's place
-  const bays = (start, len, n, skip = []) => { for (let k = 0; k < n; k++) if (!skip.includes(k)) { const c = start + (k + 0.5) * len / n; out.push([c - 0.45, c + 0.45, 0.45, 2.6]); } };
+  // one window everywhere, as on the sheets: 1.5 m wide, in the piers between them the walls of the rooms
+  const win = c => out.push([c - 0.75, c + 0.75, 0.5, 3.0]);
+  const bays = (start, len, n) => { for (let k = 0; k < n; k++) win(start + (k + 0.5) * len / n); };
+  const tower = () => { for (const c of FLANK_WINS) { win(FXW + c); win(FXT - c); } };
   if (key === '1') {
     if (face === 'back' || (face === 'front' && lo > FX1 - 0.2 && other < FZF - 1.5)) return [];   // the back of the shops and of the annex: plain wall
     else if (face === 'left' && other < FX0 + 0.8) glass(Math.max(lo, FSG), hi, 0.05, 3.6);        // west side: glass towards the street only
@@ -39,17 +44,18 @@ function windowSpans(key, face, lo, hi, other) {
     // (a wall between two shops that reaches the glass stays a plain wall)
   } else if (face === 'front') {
     glass(FX0 + 0.3, FXW - 0.1);                                          // glass wing
-    for (const st of [FXW, FCX + FHW]) bays(st, FWFL, 2);
+    tower();
+    out.find(o => o[0] < -15 && o[1] > -14)[0] = -14.85;                  // a dividing wall meets this window: the glass stops at it
     glass(FCX - 2.7, FCX + 2.7);                                          // curtain wall of the centre bay
-    bays(FXT, FX1 - FXT, 12, [3, 8]);
+    bays(FXT, FX1 - FXT, 9);
   } else if (face === 'back') {
     // the same as the front (the wing: a window either side of the gold strip)
-    for (const st of [FXW, FCX + FHW]) bays(st, FWFL, 2);
+    tower();
     glass(FCX - 2.7, FCX + 2.7);
-    bays(FXT, FX1 - FXT, 12, [3, 8]);
-    bays(FX0, FXW - FX0, 3, [1]);
+    bays(FXT, FX1 - FXT, 9);
+    WING_WINS.forEach(c => win(FX0 + c));
   } else if (face === 'right') {
-    if (other > FXT + 1) bays(FZB, FZF - FZB, 5, key === '9' ? [] : [2]);
+    if (other > FXT + 1) EAST_WINS.forEach(win);
     else bays(FZB, FZF - FZB, 4);                        // east face of the tower above the main block
   } else if (face === 'left') {
     if (other < FX0 + 0.8) glass(Math.max(lo + 0.2, FSG), hi - 0.2);      // wall along the rooms, glass towards the street
@@ -142,6 +148,26 @@ function boxGeometry(list) {
 
 /* ---------- plan decoding + room classification ---------- */
 const cache = {};
+// behind a window the wall is one thickness: columns and thick wall ends the sheets draw there would cut the opening in
+// two, one half deep in the pier. (A dividing wall, with no room right behind it, stays.)
+function clearWindowPiers({ key, grid, w, h, ci, cj }) {
+  const T = 3;
+  // cells of one line from outside inwards: k0 at the edge of the plan, step d, at most n of them
+  const line = (k0, d, n) => {
+    let t = 0; while (t < n && grid[k0 + t * d] === 0) t++;
+    if (t === n) return;
+    let u = t; while (u < n && u < t + 16 && !isRoom(grid[k0 + u * d])) u++;
+    const v = grid[k0 + u * d]; if (u === n || !isRoom(v)) return;
+    for (let q = t; q < Math.max(u, t + T); q++) grid[k0 + q * d] = q < t + T ? WALL : v;   // (where the sheet leaves the wall out, it closes)
+  };
+  const across = (c, f) => { for (let s = c - 0.7; s <= c + 0.71; s += 0.1) f(s); };
+  const front = c => across(c, x => line((h - 1) * w + ci(x), -w, h)), back = c => across(c, x => line(ci(x), w, h));
+  const tower = FLANK_WINS.flatMap(c => [FXW + c, FXT - c]);
+  if (key !== '10') { tower.forEach(c => { front(c); back(c); }); WING_WINS.forEach(c => back(FX0 + c)); }
+  if (key === '9' || key === '10') return;                               // no main block with these windows up there
+  for (let k = 0; k < 9; k++) { const c = FXT + 1.5 + 3 * k; front(c); back(c); }
+  for (const c of EAST_WINS) across(c, z => line(cj(z) * w + w - 1, -1, w));
+}
 // the sheets draw the tower's back flat, but it stands out like the front: the rooms behind it run out into the bays,
 // the outer wall moves to the line of the bays; dividing walls follow it
 function pushBackBays({ grid, w, ci, cj, rooms, cell }) {
@@ -256,6 +282,7 @@ export function getPlan(key) {
     streetOnly[key] = street;
   }
   if (BACK_BAYS.has(key)) pushBackBays({ grid, w, ci, cj, rooms, cell });
+  if (BACK_BAYS.has(key)) clearWindowPiers({ key, grid, w, h, ci, cj });
   // a thin wall piece standing free in a lobby or corridor (touching no other wall) is a stray line of the drawing,
   // not a partition: it would only block the way, e.g. in front of the 1st-floor stair. Square columns stay.
   {
@@ -839,7 +866,7 @@ function layout(plan) {
       case 'room': {                                       // office: desks along the walls, a cabinet, a guest chair
         const n = Math.max(1, Math.min(8, Math.floor(r.area / 6)));
         for (let k = 0; k < n; k++) put('deskOffice', 1.4, 1.3, { low: true });
-        put('cabinet', 1.2, 0.6) || put('wardrobe', 1.0, 0.6);
+        put('cabinet', 1.2, 0.6, { inner: true }) || put('wardrobe', 1.0, 0.6, { inner: true });
         if (r.area > 18) sofa();
         put('model', 0.9, 1.0, { low: true }, 'armchair');
         plant();
@@ -849,7 +876,7 @@ function layout(plan) {
         put('shower', 0.9, 0.9); put('toilet', 0.5, 0.7); put('vanity', 0.8, 0.5);
         break;
       case 'store':
-        put('wardrobe', 1.2, 0.6);
+        put('wardrobe', 1.2, 0.6, { inner: true });
         break;
       case 'hall':
         if (r.area > 40 && r.fill > 0.5) sofa();      // a lounge sofa in big lobbies only; corridors stay clear
@@ -873,14 +900,14 @@ function layout(plan) {
         break;
       case 'office':
         for (let k = 0; k < 3; k++) put('deskOffice', 1.4, 1.3, { low: true });
-        put('wardrobe', 1.2, 0.6); plant();
+        put('wardrobe', 1.2, 0.6, { inner: true }); plant();
         break;
       case 'logistics':                                    // one open hall: shelving along the walls, the stair free
         for (let k = 0; k < 5; k++) put('rack', 2.4, 0.5);
-        put('cabinet', 1.2, 0.6);
+        put('cabinet', 1.2, 0.6, { inner: true });
         break;
       case 'tech':
-        for (let k = 0; k < 3; k++) put('cabinet', 1.2, 0.6);
+        for (let k = 0; k < 3; k++) put('cabinet', 1.2, 0.6, { inner: true });
         if (r.area > 15) put('tank', 1.4, 1.4);
         break;
     }
@@ -951,7 +978,8 @@ export function interiorGeometry(key, wallH, storeyH = 3.4) {
         if (cdoor < s0 + 0.5 || cdoor > s1 - 0.5) continue;
         pane(cdoor - q, cdoor + q, 2.55, 2.6, COL.dark, 'metal');                                                // door heads
         for (const hx of [cdoor - 0.18, cdoor + 0.18]) pane(hx - 0.02, hx + 0.02, 0.9, 1.9, COL.gold, 'metal', pC - 0.1, pC + 0.1);   // pull bars
-      } else for (let m = s0 + 1.2; m < s1 - 0.3; m += 1.2) mulls.push(m);
+      } else if (s1 - s0 < 2) mulls.push((s0 + s1) / 2);
+      else for (let m = s0 + 1.2; m < s1 - 0.3; m += 1.2) mulls.push(m);
       for (const m of mulls) pane(m - 0.03, m + 0.03, Math.max(0.03, sill), top, COL.dark, 'metal');
       cur = Math.max(cur, s1);
     }
