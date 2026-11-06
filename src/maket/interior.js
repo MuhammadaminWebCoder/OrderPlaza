@@ -231,6 +231,23 @@ function clearWindowPiers({ key, grid, w, h, ci, cj }) {
   for (let k = 0; k < 9; k++) { const c = FXT + 1.5 + 3 * k; front(c); back(c); }
   for (const c of EAST_WINS) across(c, z => line(cj(z) * w + w - 1, -1, w));
 }
+// where the wing's back meets the tower the sheets leave a hole in the outer wall (7, 8), or a pocket and a wall running
+// off at an angle (9), with a piece of wall left inside: one straight wall of the wing's own thickness, up to the tower
+function straightenWingBack({ grid, w, h, ci, cj }) {
+  const T = 3, iA = ci(-20.2), iT = ci(FXW);
+  let j0 = 0; while (j0 < h && !grid[j0 * w + ci(-21)]) j0++;             // the wall's outer face, from the stretch that is whole
+  for (let i = iA; i < iT + T; i++) {
+    const tower = i >= iT;
+    for (let j = tower ? cj(FBZ1) : 0; j < j0 + T; j++) {
+      const k = j * w + i;
+      if (j < j0 && !tower) grid[k] = 0;
+      else if (grid[k] !== WIN) grid[k] = WALL;
+    }
+    if (tower) continue;
+    if (!isRoom(grid[(j0 + 8) * w + i])) continue;                       // a dividing wall going on into the building stays
+    for (let j = j0 + 7; j >= j0 + T; j--) if (grid[j * w + i] === WALL && isRoom(grid[(j + 1) * w + i])) grid[j * w + i] = grid[(j + 1) * w + i];
+  }
+}
 // the sheets draw the tower's back flat, but it stands out like the front: the rooms behind it run out into the bays,
 // the outer wall moves to the line of the bays; dividing walls follow it
 function pushBackBays({ grid, w, ci, cj, rooms, cell }) {
@@ -360,13 +377,18 @@ export function getPlan(key) {
   }
   if (BACK_BAYS.has(key)) pushBackBays({ grid, w, ci, cj, rooms, cell });
   if (BACK_BAYS.has(key)) clearWindowPiers({ key, grid, w, h, ci, cj });
-  if (BACK_BAYS.has(key)) { dropColumns({ grid, w, h, x0, z0, cell }); squareCorners({ grid, w, h, ci, cj }); }
+  if (BACK_BAYS.has(key)) { dropColumns({ grid, w, h, x0, z0, cell }); squareCorners({ grid, w, h, ci, cj }); straightenWingBack({ grid, w, h, ci, cj }); }
   // 9th floor, the east wall of the tower: the door to the terrace in a plain wall, no slivers of glass beside it
   if (key === '9') {
     const T = rooms.find(r => r.type === 'terrace');
     for (let j = cj(-6.6); j < cj(-5.9); j++) if (grid[j * w + ci(-2.75)] === WIN) grid[j * w + ci(-2.75)] = T.id;
     for (let j = cj(-7.45); j < cj(-7.1); j++) grid[j * w + ci(-2.95)] = WALL;
     for (let j = cj(-5.9); j <= cj(-5.45); j++) for (const x of [-2.95, -2.85, -2.75]) grid[j * w + ci(x)] = WALL;
+    // the front corner of the terrace: the room's floor ran past the glass where the column stood; the glass goes on to the
+    // front wall, the terrace and its parapet go on to the glass
+    for (let j = cj(6.9); j <= cj(7.3); j++) grid[j * w + ci(-2.75)] = WIN;
+    for (let j = cj(7.0); j <= cj(7.3); j++) for (const x of [-2.65, -2.55, -2.45]) grid[j * w + ci(x)] = j < cj(7.1) ? T.id : PARAPET;
+    for (let j = cj(7.4); j <= cj(7.6); j++) grid[j * w + ci(-2.45)] = WALL;
   }
   // 10th floor: off the stair landing one door to the chillers and one to the corridor (see openDoors); none other opens
   // onto the chiller yard
