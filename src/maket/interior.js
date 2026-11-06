@@ -159,11 +159,17 @@ function clearWindowPiers({ key, grid, w, h, ci, cj }) {
     let u = t; while (u < n && u < t + 16 && !isRoom(grid[k0 + u * d])) { if (grid[k0 + u * d] === STAIR) return; u++; }
     const v = grid[k0 + u * d]; if (u === n || !isRoom(v)) return;
     for (let q = t; q < Math.max(u, t + T); q++) grid[k0 + q * d] = q < t + T ? WALL : v;   // (where the sheet leaves the wall out, it closes)
+    // a stretch of wall just behind it, the same room on both sides, is a leftover of the drawing's layers
+    let a = Math.max(u, t + T); while (a < n && a < t + 12 && grid[k0 + a * d] === v) a++;
+    let b = a; while (b < n && b < a + 3 && grid[k0 + b * d] === WALL) b++;
+    if (b > a && grid[k0 + b * d] === v) for (let q = a; q < b; q++) grid[k0 + q * d] = v;
   };
   const across = (c, f) => { for (let s = c - 0.7; s <= c + 0.71; s += 0.1) f(s); };
   const front = c => across(c, x => line((h - 1) * w + ci(x), -w, h)), back = c => across(c, x => line(ci(x), w, h));
   const tower = FLANK_WINS.flatMap(c => [FXW + c, FXT - c]);
   if (key !== '10') { tower.forEach(c => { front(c); back(c); }); WING_WINS.forEach(c => back(FX0 + c)); }
+  // the front of the wing and the tower's flanks are one plane: the glass runs through, no wall pieces between the panes
+  for (const [x0, x1] of [[FX0 + 0.25, FCX - FHW - 0.15], [FCX + FHW + 0.15, FXT - 0.15]]) for (let x = x0; x <= x1; x += 0.1) line((h - 1) * w + ci(x), -w, h);
   // the west glass of the hall is one window: the wall behind it is straight, on floors 2, 7, 8, 9 the sheets have a thick
   // stretch and a piece of wall from it across the way to the stair
   if (key !== '10') for (let j = cj(5.15); j <= cj(7.6); j++) line(j * w, 1, w);
@@ -352,6 +358,12 @@ export function getPlan(key) {
       const mid = keep.length >> 1, open = new Set(keep.slice(Math.max(0, mid - 6), mid + 6));
       for (const g of groups) for (const c of g) if (!open.has(c)) grid[c] = WIN;
     }
+  }
+  // 10th floor: a double door from the corridor out to the chillers, beside the door from the stair
+  if (key === '10') {
+    const hall = grid[cj(0.2) * w + ci(-16.5)];
+    for (let j = cj(-0.55); j <= cj(0.85); j++) for (let i = ci(-18); i <= ci(-17); i++) if (grid[j * w + i] === WALL) grid[j * w + i] = hall;
+    for (let j = cj(0.9); j <= cj(1.35); j++) grid[j * w + ci(-17.45)] = WALL;      // and a piece of wall between the two
   }
   // numbers run round the floor anticlockwise seen from above: along the street left to right, back along the rear side
   let next = 0;
