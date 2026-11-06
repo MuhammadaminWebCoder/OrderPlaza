@@ -25,11 +25,10 @@ const ZF = 7.05, ZB = -7.05, ZWF = 7.65, ZWB = -6.15, ZW1 = -4.6;      // ZW1: b
 const ENT = { x0: -24.3, x1: -17.6, z0: ZWF, z1: 11.0 };                 // 1st floor entrance hall, 3 m out of the wing
 const LG = { x0: X1, x1: 35.0, z0: 0.8, z1: 7.05 };                      // logistics hall past the east end (10.25 m)
 const SB = { x0: X1, x1: 26.7, z0: -3.4, z1: 0.8 };                      // stair box behind it
-const PIL = [XT, XT + 6, XT + 12, XT + 18, XT + 24, X1];                 // pilasters on the main block's street face
+const PIL = [XT, XT + 6.75, XT + 13.5, XT + 20.25, X1];                  // pilasters on the main block's faces, on the lines between the windows
 const S9 = { f: 1.45, b: 1.45, r: 3.05 };                                // 9th floor: offices set back behind the terrace
 const X9 = X1 - S9.r, ZF9 = ZF - S9.f, ZB9 = ZB + S9.b;
 const TF9 = ZF + 0.15, TB9 = ZB - 0.15;                                  // terrace slab: 14.40 m deep, 0.15 m out over the facades below
-const WB1 = 1.0, WB2 = 5.3;                                              // small windows in the back of the wing, metres from its west end
 const SG = 3.5;                                                          // west side: wall along the rooms, glass only from here to the street
 const SH = { x0: X0, x1: XW, z0: 1.3, z1: ZWF };                         // 10th floor: closed stair hall in the wing, chiller roof behind it
 const NF = 10, ROOF = 11;
@@ -126,12 +125,14 @@ export async function initMaket({ img, openImages }) {
     if (spandrel > 0) g.fillRect(x0, spandrel - 0.03, w, 0.06);
     g.fillRect(x0, h - 0.05, w, 0.05);
   }
-  function drawBays(g, w, h, bays, { ww = 0.9, y0 = 0.5, y1 = 3.0, railing = true, bg = C.white } = {}) {
+  // every window of the building is this one, on an even grid; `skip`: the places a gold strip stands instead
+  function drawBays(g, w, h, bays, { ww = 0.9, y0 = 0.5, y1 = 3.0, railing = true, bg = C.white, skip = [] } = {}) {
     g.fillStyle = bg; g.fillRect(0, 0, w, h);
     const bw = w / bays;
     for (let i = 0; i < bays; i++) {
       const x = bw * i, cx = x + bw / 2;
       g.fillStyle = C.groove; g.fillRect(x + 0.3, 0, 0.04, h); g.fillRect(x + bw - 0.34, 0, 0.04, h);
+      if (skip.includes(i)) continue;
       g.fillStyle = C.frame; g.fillRect(cx - ww / 2 - 0.1, y0 - 0.1, ww + 0.2, y1 - y0 + 0.2);
       const gr = g.createLinearGradient(0, y0, 0, y1);
       gr.addColorStop(0, '#252F39'); gr.addColorStop(1, '#4A5763');
@@ -147,8 +148,8 @@ export async function initMaket({ img, openImages }) {
   }
   const W_T = XT - XW, W_M = X1 - XT, W_W = XW - X0, D = ZF - ZB, D_W = ZWF - ZWB;
   const T = {};
-  T.mainFront = canvasTex(W_M, FH, (g, w, h) => drawBays(g, w, h, 12));
-  T.mainSide = canvasTex(D, FH, (g, w, h) => drawBays(g, w, h, 5));
+  T.mainFront = canvasTex(W_M, FH, (g, w, h) => drawBays(g, w, h, 12, { skip: [3, 8] }));
+  T.mainSide = canvasTex(D, FH, (g, w, h) => drawBays(g, w, h, 5, { skip: [2] }));
   const HW = 3.2;                                     // half width of the projecting centre bay (6.4 m)
   const BAY = 1.75;                                   // how far the centre bay stands out of the facade
   const LOBBY_H = 3.6;                                // entrance hall front: glass up to 3.6 m, slab above
@@ -158,17 +159,7 @@ export async function initMaket({ img, openImages }) {
     glassRegion(g, 0.85, w - 0.85, h, 1.1, 0.0);
     g.fillStyle = C.white; g.fillRect(0.85, h - 0.32, w - 1.7, 0.32);   // slab band between storeys
   });
-  T.towerFlank = canvasTex(W_FL, FH, (g, w, h) => {
-    g.fillStyle = C.white; g.fillRect(0, 0, w, h);
-    for (const a of [0.55, w - 1.55]) {
-      const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#232C36'); gr.addColorStop(1, '#3E4B58');
-      g.fillStyle = gr; g.fillRect(a, 0.25, 1.0, h - 0.6);
-      g.fillStyle = C.mull; g.fillRect(a + 0.48, 0.25, 0.04, h - 0.6);
-      g.fillStyle = C.rail; g.fillRect(a - 0.04, 1.15, 1.08, 0.05);
-      for (let r = a; r <= a + 1.0; r += 0.1) g.fillRect(r - 0.01, 0.25, 0.02, 0.9);
-    }
-    g.fillStyle = C.groove; g.fillRect(w / 2 - 0.02, 0, 0.04, h);
-  });
+  T.towerFlank = canvasTex(W_FL, FH, (g, w, h) => drawBays(g, w, h, 2));
   // entrance hall standing out of the wing: glass box with double doors and a white fascia
   const lobbyFace = (g, w, h, doors) => {
     glassRegion(g, 0, w, h, 1.25, 0);
@@ -182,16 +173,7 @@ export async function initMaket({ img, openImages }) {
     }
   };
   T.lobbyFront = canvasTex(ENT.x1 - ENT.x0, LOBBY_H, (g, w, h) => lobbyFace(g, w, h, true));
-  T.towerFront = canvasTex(W_T, FH, (g, w, h) => {
-    g.fillStyle = C.white; g.fillRect(0, 0, w, h);
-    for (const a of [1.0, 2.1, 3.2, w - 3.6, w - 2.5, w - 1.4]) {
-      const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#232C36'); gr.addColorStop(1, '#3E4B58');
-      g.fillStyle = gr; g.fillRect(a, 0.1, 0.42, h - 0.1);
-      g.fillStyle = C.mull; g.fillRect(a, 2.2, 0.42, 0.05);
-    }
-    glassRegion(g, w / 2 - 2.7, w / 2 + 2.7, h, 1.08, 0);
-  });
-  T.towerSide = canvasTex(D, FH, (g, w, h) => drawBays(g, w, h, 4, { railing: false }));
+  T.towerSide = canvasTex(D, FH, (g, w, h) => drawBays(g, w, h, 4));
   T.wingFront = canvasTex(W_W, FH, (g, w, h) => glassRegion(g, 0, w, h, 1.1, 0.8));
   // west side: solid wall where the rooms are, a strip of glass towards the street (a = where the glass starts)
   const sideFace = (g, w, h, a) => {
@@ -201,17 +183,7 @@ export async function initMaket({ img, openImages }) {
   };
   T.wingSide = canvasTex(D_W, FH, (g, w, h) => sideFace(g, w, h, SG - ZWB));
   T.headSide = canvasTex(SH.z1 - SH.z0, FH, (g, w, h) => sideFace(g, w, h, SG - SH.z0));
-  // back of the wing: two small windows either side of the gold strip
-  T.wingBack = canvasTex(W_W, FH, (g, w, h) => {
-    g.fillStyle = C.white; g.fillRect(0, 0, w, h);
-    for (const c of [WB1, WB2]) {
-      g.fillStyle = C.frame; g.fillRect(w - c - 0.45, 1.1, 0.9, 1.4);
-      const gr = g.createLinearGradient(0, 1.2, 0, 2.4); gr.addColorStop(0, '#252F39'); gr.addColorStop(1, '#4A5763');
-      g.fillStyle = gr; g.fillRect(w - c - 0.35, 1.2, 0.7, 1.2);
-      g.fillStyle = '#5F6C77'; g.fillRect(w - c - 0.02, 1.2, 0.04, 1.2);
-    }
-    g.fillStyle = C.groove; g.fillRect(0, 0, w, 0.04);
-  });
+  T.wingBack = canvasTex(W_W, FH, (g, w, h) => drawBays(g, w, h, 3, { skip: [1] }));   // a window either side of the gold strip
   T.glass9 = canvasTex(X9 - XT, FH, (g, w, h) => glassRegion(g, 0, w, h, 1.5, 0.35));
   T.glass9s = canvasTex(ZF9 - ZB9, FH, (g, w, h) => glassRegion(g, 0, w, h, 1.5, 0.35));
   // air-cooled chiller casing: light steel panels, dark condenser louvres along the long sides
@@ -346,7 +318,7 @@ export async function initMaket({ img, openImages }) {
     gold: std({ map: T.girih, metalness: 0.45, roughness: 0.38, emissive: '#3a2a08', emissiveIntensity: 0.6 }),
     crown: std({ map: T.crown }),
     mainFront: facade(T.mainFront), mainSide: facade(T.mainSide),
-    towerFront: facade(T.towerFront), towerCenter: facade(T.towerCenter), towerFlank: facade(T.towerFlank), towerSide: facade(T.towerSide),
+    towerCenter: facade(T.towerCenter), towerFlank: facade(T.towerFlank), towerSide: facade(T.towerSide),
     wingFront: facade(T.wingFront),
     wingSide: facade(T.wingSide), headSide: facade(T.headSide), wingBack: facade(T.wingBack),
     glass9: facade(T.glass9),
@@ -437,7 +409,7 @@ export async function initMaket({ img, openImages }) {
     g.add(box(X0 - 0.14, X0, y0 - 0.16, y0 + 0.14, n === 2 ? ZW1 : ZWB, ZWF, M.white));
     // gold strip: on the front at the right end of the wing glass, up against the tower's corner fin; all the way to the top
     g.add(box(XW - 1.7, XW - 0.2, y0, y1, ZWF, ZWF + 0.12, M.gold));
-    g.add(box(X0 + 1.9, X0 + 3.4, y0, y1, ZWB - 0.12, ZWB, M.gold));       // at the back it stays between the small windows
+    g.add(box(X0 + W_W / 2 - 0.75, X0 + W_W / 2 + 0.75, y0, y1, ZWB - 0.12, ZWB, M.gold));   // at the back: in the middle, between the windows
     g.add(box(XW, XT, y0, y1, ZB, ZF, faces(M.towerSide, M.white, M.white, M.white)));
     const cx = (XW + XT) / 2;
     // step 2: flank bays 0.7 m proud of the wing / main block; step 1: centre bay BAY m proud
@@ -456,7 +428,7 @@ export async function initMaket({ img, openImages }) {
       g.add(box(XT, X1, y0, y1, ZB, ZF, faces(M.mainSide, M.white, M.mainFront, M.mainFront)));
       const p = PIL.flatMap(x => { const px = x + (x === XT ? 0.25 : x === X1 ? -0.25 : 0), py = y0 + fh(n) / 2; return [[px, py, ZF + 0.11], [px, py, ZB - 0.11]]; });
       g.add(instBoxes(0.5, fh(n), 0.22, M.white, p));
-      for (const gx of [XT + 9, XT + 21]) {
+      for (const gx of [XT + 7.875, XT + 19.125]) {        // each in a window's place on the grid
         g.add(box(gx - 0.7, gx + 0.7, y0, y1, ZF + 0.22, ZF + 0.34, M.gold));
         g.add(box(gx - 0.7, gx + 0.7, y0, y1, ZB - 0.34, ZB - 0.22, M.gold));
       }

@@ -30,7 +30,8 @@ const FSG = 3.5;                                       // west side: wall along 
 function windowSpans(key, face, lo, hi, other) {
   if (key === 'b') return [];
   const out = [], glass = (a0, a1, sill = 0.05, top = 2.75) => out.push([a0, a1, sill, top]);
-  const bays = (start, len, n, half, sill, top) => { for (let k = 0; k < n; k++) { const c = start + (k + 0.5) * len / n; out.push([c - half, c + half, sill, top]); } };
+  // one window everywhere, on an even grid (the same as outside); `skip`: where a gold strip takes a window's place
+  const bays = (start, len, n, skip = []) => { for (let k = 0; k < n; k++) if (!skip.includes(k)) { const c = start + (k + 0.5) * len / n; out.push([c - 0.45, c + 0.45, 0.45, 2.6]); } };
   if (key === '1') {
     if (face === 'back' || (face === 'front' && lo > FX1 - 0.2 && other < FZF - 1.5)) return [];   // the back of the shops and of the annex: plain wall
     else if (face === 'left' && other < FX0 + 0.8) glass(Math.max(lo, FSG), hi, 0.05, 3.6);        // west side: glass towards the street only
@@ -38,18 +39,18 @@ function windowSpans(key, face, lo, hi, other) {
     // (a wall between two shops that reaches the glass stays a plain wall)
   } else if (face === 'front') {
     glass(FX0 + 0.3, FXW - 0.1);                                          // glass wing
-    for (const st of [FXW, FCX + FHW]) { out.push([st + 0.55, st + 1.55, 0.25, 2.85]); out.push([st + FWFL - 1.55, st + FWFL - 0.55, 0.25, 2.85]); }
+    for (const st of [FXW, FCX + FHW]) bays(st, FWFL, 2);
     glass(FCX - 2.7, FCX + 2.7);                                          // curtain wall of the centre bay
-    bays(FXT, FX1 - FXT, 12, 0.45, 0.45, 2.6);
+    bays(FXT, FX1 - FXT, 12, [3, 8]);
   } else if (face === 'back') {
-    // the same as the front (the wing: two small windows)
-    for (const st of [FXW, FCX + FHW]) { out.push([st + 0.55, st + 1.55, 0.25, 2.85]); out.push([st + FWFL - 1.55, st + FWFL - 0.55, 0.25, 2.85]); }
+    // the same as the front (the wing: a window either side of the gold strip)
+    for (const st of [FXW, FCX + FHW]) bays(st, FWFL, 2);
     glass(FCX - 2.7, FCX + 2.7);
-    bays(FXT, FX1 - FXT, 12, 0.45, 0.45, 2.6);
-    for (const c of [1.0, 5.3]) out.push([FX0 + c - 0.35, FX0 + c + 0.35, 1.2, 2.4]);
+    bays(FXT, FX1 - FXT, 12, [3, 8]);
+    bays(FX0, FXW - FX0, 3, [1]);
   } else if (face === 'right') {
-    if (other > FXT + 1) bays(FZB, FZF - FZB, 5, 0.45, 0.45, 2.6);
-    else bays(FZB, FZF - FZB, 4, 0.45, 0.45, 2.6);                        // east face of the tower above the main block
+    if (other > FXT + 1) bays(FZB, FZF - FZB, 5, key === '9' ? [] : [2]);
+    else bays(FZB, FZF - FZB, 4);                        // east face of the tower above the main block
   } else if (face === 'left') {
     if (other < FX0 + 0.8) glass(Math.max(lo + 0.2, FSG), hi - 0.2);      // wall along the rooms, glass towards the street
   }
