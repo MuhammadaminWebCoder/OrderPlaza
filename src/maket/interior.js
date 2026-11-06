@@ -297,6 +297,12 @@ export function getPlan(key) {
   }
   if (BACK_BAYS.has(key)) pushBackBays({ grid, w, ci, cj, rooms, cell });
   if (BACK_BAYS.has(key)) clearWindowPiers({ key, grid, w, h, ci, cj });
+  // floors 2, 7, 8, 9: the piece of wall the sheets draw from the west wall across the way to the stair is not there
+  // (as on floors 3 to 6)
+  if (['2', '7', '9'].includes(key)) {
+    const hall = grid[cj(6.4) * w + ci(-22.5)];
+    for (let j = cj(5.2); j <= cj(6.05); j++) for (let i = ci(-24.35); i <= ci(-23.3); i++) if (grid[j * w + i] === WALL) grid[j * w + i] = hall;
+  }
   // a thin wall piece standing free in a lobby or corridor (touching no other wall) is a stray line of the drawing,
   // not a partition: it would only block the way, e.g. in front of the 1st-floor stair. Square columns stay.
   {
