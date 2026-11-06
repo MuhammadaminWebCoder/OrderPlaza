@@ -644,8 +644,8 @@ export async function initMaket({ img, openImages }) {
     const c = cuts[n];
     if (c.built) return;
     c.built = true;
-    if (n === 1) {        // the 1st floor's fronts are redrawn in its plan: the slab follows them
-      c.shape = new THREE.Shape(planFloorOutline('1').map(([x, z]) => new THREE.Vector2(x, -z)));
+    if (n >= 1) {         // the fronts, the bays and the corners are redrawn in the plans: the slab follows them
+      c.shape = new THREE.Shape(planFloorOutline(planKey(n)).map(([x, z]) => new THREE.Vector2(x, -z)));
       for (const m of [c.slab, c.under]) { m.geometry.dispose(); m.geometry = new THREE.ShapeGeometry(c.shape).rotateX(-Math.PI / 2); }
     }
     const g = interiorGeometry(planKey(n), wallH(n), fh(n)), y0 = base(n) + 0.03;

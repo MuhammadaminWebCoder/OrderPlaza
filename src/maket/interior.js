@@ -60,7 +60,9 @@ function windowSpans(key, face, lo, hi, other) {
   } else if (face === 'left') {
     if (other < FX0 + 0.8) glass(Math.max(lo, FSG), hi);                  // wall along the rooms, glass towards the street
   }
-  return out.map(([a, b, s0, t]) => [Math.max(a, lo + 0.08), Math.min(b, hi - 0.08), s0, t]).filter(([a, b]) => b - a > 0.3);
+  // the west glass and the wing's front glass run right through: nothing between the panes
+  const m = face === 'left' || (face === 'front' && lo < FX0 + 1) ? 0 : 0.08;
+  return out.map(([a, b, s0, t]) => [Math.max(a, lo + m), Math.min(b, hi - m), s0, t]).filter(([a, b]) => b - a > 0.3);
 }
 const isRoom = v => v > 0 && v < PARAPET;
 // 10th floor (technical floor): the wing is an open roof with the chillers, behind a parapet (cadastral room 2).
@@ -148,6 +150,58 @@ function boxGeometry(list) {
 
 /* ---------- plan decoding + room classification ---------- */
 const cache = {};
+// the concrete columns at the wall junctions stand out of the walls as cubes: the walls run through instead, at their own
+// thickness. (Not the lift shafts, the stairs or the sides of the centre bay; columns standing free in a room stay.)
+function dropColumns({ grid, w, h, x0, z0, cell }) {
+  const core = new Uint8Array(w * h), seen = new Uint8Array(w * h);
+  for (let j = 1; j < h - 1; j++) for (let i = 1; i < w - 1; i++) {
+    let ok = true;
+    for (let a = -1; a <= 1 && ok; a++) for (let b = -1; b <= 1; b++) if (grid[(j + a) * w + i + b] !== WALL) { ok = false; break; }
+    if (ok) core[j * w + i] = 1;
+  }
+  for (let s = 0; s < w * h; s++) {
+    if (!core[s] || seen[s]) continue;
+    const q = [s]; seen[s] = 1; let a = 1e9, b = -1, c = 1e9, d = -1;
+    for (let n = 0; n < q.length; n++) {
+      const k = q[n], i = k % w, j = (k / w) | 0;
+      a = Math.min(a, i); b = Math.max(b, i); c = Math.min(c, j); d = Math.max(d, j);
+      for (const e of [1, -1, w, -w, w + 1, w - 1, -w + 1, -w - 1]) if (core[k + e] && !seen[k + e]) { seen[k + e] = 1; q.push(k + e); }
+    }
+    a--; b++; c--; d++;                                                   // the core grown back to the column
+    const xc = x0 + (a + b + 1) / 2 * cell, zc = z0 + (c + d + 1) / 2 * cell;
+    if (b - a > 6 || d - c > 6 || zc > 6.5 || xc < -20 || a < 4 || c < 4 || b > w - 5 || d > h - 5) continue;
+    let nearStair = false;
+    for (let j = c - 3; j <= d + 3; j++) for (let i = a - 3; i <= b + 3; i++) if (grid[j * w + i] === STAIR) nearStair = true;
+    if (nearStair) continue;
+    const L = [], R = [], T = [], B = [];
+    for (let j = c; j <= d; j++) { if (grid[j * w + a - 1] === WALL) L.push(j); if (grid[j * w + b + 1] === WALL) R.push(j); }
+    for (let i = a; i <= b; i++) { if (grid[(c - 1) * w + i] === WALL) T.push(i); if (grid[(d + 1) * w + i] === WALL) B.push(i); }
+    if (!L.length && !R.length && !T.length && !B.length) continue;
+    const H = [...L, ...R], V = [...T, ...B], keep = new Set();
+    for (const j of L) for (let i = a, e = V.length ? Math.max(...V) : R.length ? b : a - 1; i <= e; i++) keep.add(j * w + i);
+    for (const j of R) for (let i = V.length ? Math.min(...V) : L.length ? a : b + 1; i <= b; i++) keep.add(j * w + i);
+    for (const i of T) for (let j = c, e = H.length ? Math.max(...H) : B.length ? d : c - 1; j <= e; j++) keep.add(j * w + i);
+    for (const i of B) for (let j = H.length ? Math.min(...H) : T.length ? c : d + 1; j <= d; j++) keep.add(j * w + i);
+    const rest = [];
+    for (let j = c; j <= d; j++) for (let i = a; i <= b; i++) if (grid[j * w + i] === WALL && !keep.has(j * w + i)) rest.push(j * w + i);
+    for (let it = 0; it < 8 && rest.length; it++) for (let n = rest.length - 1; n >= 0; n--) {
+      const v = [1, -1, w, -w].map(e => grid[rest[n] + e]).find(isRoom);
+      if (v) { grid[rest[n]] = v; rest.splice(n, 1); }
+    }
+  }
+}
+// the outer corners of the sheets are cut back in small steps: square them
+function squareCorners({ grid, w, h, ci, cj }) {
+  for (const [xa, xb, za, zb] of [[-25.1, -24.45, -6.5, -5.7], [-25.1, -24.45, 7.2, 7.9], [24.45, 25.1, 6.6, 7.4]]) {
+    const i0 = Math.max(0, ci(xa)), i1 = Math.min(w - 1, ci(xb)), j0 = Math.max(0, cj(za)), j1 = Math.min(h - 1, cj(zb));
+    const inX = xa < 0 ? 1 : -1, inZ = za < 0 ? 1 : -1;                   // towards the building
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      if (grid[j * w + i] !== 0) continue;
+      const solid = (di, dj) => { for (let q = 1; q < 8; q++) { const ii = i + di * q, jj = j + dj * q; if (ii >= 0 && jj >= 0 && ii < w && jj < h && grid[jj * w + ii]) return true; } return false; };
+      if (solid(inX, 0) && solid(0, inZ) && (solid(-inX, 0) || solid(0, -inZ))) grid[j * w + i] = WALL;
+    }
+  }
+}
 // behind a window the wall is one thickness: columns and thick wall ends the sheets draw there would cut the opening in
 // two, one half deep in the pier. (A dividing wall, with no room right behind it, stays.)
 function clearWindowPiers({ key, grid, w, h, ci, cj }) {
@@ -306,6 +360,7 @@ export function getPlan(key) {
   }
   if (BACK_BAYS.has(key)) pushBackBays({ grid, w, ci, cj, rooms, cell });
   if (BACK_BAYS.has(key)) clearWindowPiers({ key, grid, w, h, ci, cj });
+  if (BACK_BAYS.has(key)) { dropColumns({ grid, w, h, x0, z0, cell }); squareCorners({ grid, w, h, ci, cj }); }
   // 9th floor, the east wall of the tower: the door to the terrace in a plain wall, no slivers of glass beside it
   if (key === '9') {
     const T = rooms.find(r => r.type === 'terrace');
@@ -557,6 +612,15 @@ function fitDoorsToWalls(plan) {
       if (ub > ua && (!best || ub - ua < best[1] - best[0])) best = [ua, ub];
     }
     if (best) { d.a = best[0] * cell; d.b = best[1] * cell; }
+    // a door never stands out of its wall: where it came out deeper, it sits on the line between the two rooms
+    if (d.b - d.a > 0.32) {
+      const t = Math.round((d.t0 + d.t1) / 2 / cell), cellAt = u => d.o === 'v' ? at(u, t) : at(t, u);
+      let ua = Math.round(d.a / cell), ub = Math.round(d.b / cell) - 1;
+      while (ua < ub && cellAt(ua + 1) === d.low) ua++;
+      while (ub > ua && cellAt(ub - 1) === d.high) ub--;
+      const c = (ua + 1 + ub) / 2;
+      d.a = (Math.round(c) - 1) * cell; d.b = (Math.round(c) + 1) * cell;
+    }
   }
 }
 
@@ -1005,6 +1069,10 @@ export function interiorGeometry(key, wallH, storeyH = 3.4) {
       if (sill > 0.06) { seg(s0, s1, 0, sill, COL.wall, 'plaster', true); seg(s0, s1, sill - 0.03, sill, COL.white, 'marble'); }
       seg(s0, s1, top, wallH, COL.wall, 'plaster');
       pane(s0, s1, Math.max(0.03, sill), top, COL.glass, 'glass');
+      if (key !== '1' && face === 'front' && s0 <= lo + 0.01 && lo < FX0 + 1) {   // the corner: the front glass turns into the west glass
+        const west = Math.min(...PLANS[key].outline.map(p => p[0]));
+        pane(west, s0, Math.max(0.03, sill), top, COL.glass, 'glass'); pane(west, west + 0.06, Math.max(0.03, sill), top, COL.dark, 'metal');
+      }
       pane(s0, s0 + 0.05, Math.max(0.03, sill), top, COL.dark, 'metal'); pane(s1 - 0.05, s1, Math.max(0.03, sill), top, COL.dark, 'metal');
       // mullions; a shop front is four panes across the shop, the middle two its doors (same as outside)
       // a street front is four panes across its room, the middle two its doors (the shops, the stair hall, the main
