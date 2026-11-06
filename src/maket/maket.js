@@ -435,8 +435,9 @@ export async function initMaket({ img, openImages }) {
     }
     // the storeys read on the west side as a band standing a little proud of the wall
     g.add(box(X0 - 0.14, X0, y0 - 0.16, y0 + 0.14, n === 2 ? ZW1 : ZWB, ZWF, M.white));
-    if (n < NF) g.add(box(X0 + 1.9, X0 + 3.4, y0, y1, ZWF, ZWF + 0.12, M.gold));
-    if (n < NF) g.add(box(X0 + 1.9, X0 + 3.4, y0, y1, ZWB - 0.12, ZWB, M.gold));
+    // gold strip: on the front at the right end of the wing glass, up against the tower's corner fin; all the way to the top
+    g.add(box(XW - 1.7, XW - 0.2, y0, y1, ZWF, ZWF + 0.12, M.gold));
+    g.add(box(X0 + 1.9, X0 + 3.4, y0, y1, ZWB - 0.12, ZWB, M.gold));       // at the back it stays between the small windows
     g.add(box(XW, XT, y0, y1, ZB, ZF, faces(M.towerSide, M.white, M.white, M.white)));
     const cx = (XW + XT) / 2;
     // step 2: flank bays 0.7 m proud of the wing / main block; step 1: centre bay BAY m proud
