@@ -1121,7 +1121,10 @@ export function interiorGeometry(key, wallH, storeyH = 3.4) {
   // parapet round the terrace and the chiller roof
   // (the chillers stand behind a full screen wall, open to the sky)
   const parH = key === '10' ? wallH : 1.1;
-  for (const [a, b, c, d] of maskRects(plan, k => grid[k] === PARAPET)) { shell.add(a, c, 0, parH, b, d, COL.wall, 'plaster', true); shell.add(a, c, parH, parH + 0.04, b, d, COL.white, 'marble'); }
+  for (const [a, b, c, d] of maskRects(plan, k => grid[k] === PARAPET)) {
+    if (key === '10') { shell.add(a, c, 0, parH, b, d, COL.wall, 'plaster', true); shell.add(a, c, parH, parH + 0.04, b, d, COL.white, 'marble'); }
+    else railing((x0_, x1_, y0_, y1_, z0_, z1_, col, mat) => shell.add(x0_, x1_, y0_, y1_, z0_, z1_, col, mat), a, b, c, d, parH);
+  }
   for (const d of plan.doors) {
     const off = d.o === 'v' ? x0 : z0, offT = d.o === 'v' ? z0 : x0;
     const A = off + d.a, Bv = off + d.b, T0 = offT + d.t0, T1 = offT + d.t1;
@@ -1218,7 +1221,10 @@ export function facadeGeometry(key, wallH) {
     seg(lo, lo + 0.06, sill, top, MU, 'wall'); seg(hi - 0.06, hi, sill, top, MU, 'wall');
     for (let m = lo + 1.2; m < hi - 0.3; m += 1.2) seg(m - 0.03, m + 0.03, sill, top, MU, 'wall');
   }
-  for (const [a, b, c, d] of maskRects(plan, k => grid[k] === PARAPET)) B.add(a, c, 0, 1.1, b, d, W, 'wall');
+  for (const [a, b, c, d] of maskRects(plan, k => grid[k] === PARAPET)) {
+    if (key === '10') B.add(a, c, 0, 1.1, b, d, W, 'wall');
+    else railing((x0_, x1_, y0_, y1_, z0_, z1_, col, mat) => B.add(x0_, x1_, y0_, y1_, z0_, z1_, mat === 'plaster' ? W : col, mat === 'plaster' ? 'wall' : mat), a, b, c, d);
+  }
   return B.geometries();
 }
 export function planOutline(key) {
@@ -1299,6 +1305,17 @@ function facadeRuns(plan) {
     }
   }
   return out;
+}
+// the terrace's edge is a railing, as outside: a low kerb, gold posts, bars and a handrail along the middle of the strip
+function railing(add, a, b, c, d, H = 1.1) {
+  const horiz = (c - a) >= (d - b), lo = horiz ? a : b, hi = horiz ? c : d, mid = horiz ? (b + d) / 2 : (a + c) / 2;
+  const seg = (s0, s1, y0, y1, t, col, mat) => horiz ? add(s0, s1, y0, y1, mid - t, mid + t, col, mat) : add(mid - t, mid + t, y0, y1, s0, s1, col, mat);
+  seg(lo, hi, 0, 0.1, Math.min(0.12, (horiz ? d - b : c - a) / 2), COL.wall, 'plaster');
+  seg(lo, hi, H - 0.06, H, 0.04, COL.gold, 'metal');
+  seg(lo, hi, 0.16, 0.19, 0.02, COL.gold, 'metal');
+  const n = Math.max(1, Math.round((hi - lo) / 1.4));
+  for (let k = 0; k <= n; k++) { const s = lo + 0.03 + (hi - lo - 0.06) * k / n; seg(s - 0.03, s + 0.03, 0.1, H, 0.03, COL.gold, 'metal'); }
+  for (let s = lo + 0.15; s < hi - 0.1; s += 0.15) seg(s - 0.01, s + 0.01, 0.19, H - 0.06, 0.01, COL.gold, 'metal');
 }
 function maskRects(plan, test) {
   const { w, h, cell, x0, z0 } = plan, used = new Uint8Array(w * h), out = [];
